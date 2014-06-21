@@ -13,7 +13,7 @@
 #include <stdio.h>
 #include <time.h>
 #include <stdarg.h>
-#include <assert.h>
+#include <cassert>
 #include <vector>
 #define GL_LOG_FILE "gl.log"
 

@@ -272,7 +272,7 @@ Renderer::~Renderer() {
 
 void Renderer::init() {
 	//start output log file
-	assert(restart_gl_log());
+	restart_gl_log();
 
 	//start GL context and O/S window using GLFW
 	gl_log("Starting GLFW\n%s\n", glfwGetVersionString());
