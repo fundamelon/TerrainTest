@@ -1,5 +1,8 @@
+
+#define _CRT_SECURE_NO_WARNINGS
 #include "renderer.h"
 #include "Shader.h"
+
 
 int g_gl_width = 1600;
 int g_gl_height = 900;
