@@ -10,7 +10,7 @@ namespace util {
 	const bool DEBUG = true;
 	const bool DEBUG_SHADER = false;
 
-	std::string getFileContents(const char* filepath);
+	std::string getFileContents(const char*);
 
 }
 

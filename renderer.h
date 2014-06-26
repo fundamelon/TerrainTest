@@ -23,11 +23,9 @@ const double pi = 3.1415926535897;
 
 class Scene {
 public:
-	TerrainMesh* terrain;
 	std::vector<GLuint> meshes;
 	std::vector<GLuint> shader_programs;
 	GLuint sky_shader;
-	GLuint terrain_shader;
 };
 
 
@@ -37,6 +35,7 @@ public:
 	~Renderer();
 
 	void init();
+	TerrainMesh* initTerrain();
 
 	void loadSkybox();
 	void loadFramebuffer();
@@ -44,19 +43,27 @@ public:
 	void loadTestTri();
 	void loadPostProcessShader();
 
+	GLuint buildTerrainBuffers();
+	void assignTerrainBuffer(GLuint);
+
 	void renderScreenspaceQuad();
 
-	void setScene(Scene* s);
+	void setScene(Scene*);
 
 	void initCamera();
+	glm::vec3 getCamPos();
 	glm::vec3 getCamDir();
-	void rotateSun(float amt);
+
+	void rotateSun(float);
 
 	void render();
 
 	void terminate();
 
 	bool closeRequested();
+
+	//true while rendering.
+	bool render_lock = false;
 
 private:
 	GLFWwindow* window;
@@ -72,6 +79,7 @@ private:
 
 	//shader programs
 	GLuint post_process_shader;
+	GLuint terrain_shader;
 
 	//uniforms
 	GLuint view_mat_location;
@@ -85,8 +93,10 @@ private:
 
 	GLuint ss_quad_vao;
 	GLuint skybox_vao;
+	GLuint terrain_vao;
 
 	Scene* cur_scene;
+	TerrainMesh* terrain;
 
 	double elapsed_seconds, frame_time;
 

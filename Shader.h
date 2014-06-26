@@ -4,11 +4,11 @@
 
 class Shader {
 public:
-	Shader(GLuint type);
-	Shader(const char* filepath, GLuint type);
+	Shader(GLuint);
+	Shader(const char*, GLuint);
 	~Shader();
 
-	void loadFromFile(const char* filepath);
+	void loadFromFile(const char*);
 	void compile();
 
 	GLuint getIndex();

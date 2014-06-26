@@ -385,6 +385,8 @@ void Renderer::init() {
 
 void Renderer::render() {
 
+	render_lock = true;
+
 	elapsed_seconds = glfwGetTime() - frame_time;
 	frame_time = glfwGetTime();
 
@@ -407,10 +409,11 @@ void Renderer::render() {
 	glEnable(GL_CULL_FACE);
 
 	//draw terrain
-	glUseProgram(cur_scene->terrain_shader);
-	glBindVertexArray(cur_scene->meshes.at(0));
+	glUseProgram(terrain_shader);
+	glBindVertexArray(terrain_vao);
+//	printf("%i\n", terrain->getPolyCount());
 	//draw each vert from terrain mesh
-	glDrawArrays(GL_TRIANGLES, 0, cur_scene->terrain->getPolyCount() * 9);
+	glDrawArrays(GL_TRIANGLES, 0, terrain->getPolyCount() * 9);
 
 	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
@@ -513,7 +516,7 @@ void Renderer::render() {
 
 		view_mat *= T;
 
-		glUseProgram(cur_scene->terrain_shader);
+		glUseProgram(terrain_shader);
 		glUniformMatrix4fv(view_mat_location, 1, GL_FALSE, glm::value_ptr(view_mat));
 		glUniform3fv(terrain_sun_direction, 1, glm::value_ptr(sun_direction));
 	}
@@ -521,45 +524,69 @@ void Renderer::render() {
 	glUseProgram(cur_scene->sky_shader);
 	glUniform3fv(sky_sun_direction, 1, glm::value_ptr(sun_direction));
 
-	glUseProgram(cur_scene->terrain_shader);
+	glUseProgram(terrain_shader);
 	glUniform3fv(terrain_sun_direction, 1, glm::value_ptr(sun_direction));
+
+	render_lock = false;
 
 //	printf("%f\n", cam.pos.z);
 }
 
-void Renderer::loadTestScene() {
-
-	Scene* s = new Scene();
-	s->terrain = new TerrainMesh();
-	s->terrain->setSeed(9);
+TerrainMesh*  Renderer::initTerrain() {
+	TerrainMesh* terrain = new TerrainMesh();
+	terrain->setSeed(9);
 	//	 8 : plains
 	//1000 : big cliff
+	/*
+	terrain->generateChunk(0, 0);
+	terrain->generateChunk(0, 1);
+	terrain->generateChunk(1, 0);
+	terrain->generateChunk(1, 1);
+	*/
+//	printf("%f\n", terrain->getChunkSpacing());
 
-	s->terrain->generateChunk(glm::vec2(0, 0));
-	s->terrain->generateChunk(glm::vec2(-(s->terrain->getChunkSpacing()), 0));
-	s->terrain->generateChunk(glm::vec2(0, -s->terrain->getChunkSpacing()));
-	s->terrain->generateChunk(glm::vec2(-s->terrain->getChunkSpacing(), -s->terrain->getChunkSpacing()));
+	terrain->triangulate();
 
-	printf("%f\n", s->terrain->getChunkSpacing());
+	glEnable(GL_CULL_FACE); //cull face
+	glCullFace(GL_BACK); //cull back face
+	glFrontFace(GL_CW); //GL_CCW for counterclockwise
 
-	s->terrain->triangulate();
-	s->terrain->genBuffers();
+	//shaders
 
-	printf("[REN] Terrain polycount: %i\n", s->terrain->getPolyCount());
+	Shader* terrain_vs = new Shader("./Shader/terrain_vs.glsl", GL_VERTEX_SHADER);
+	Shader* terrain_fs = new Shader("./Shader/terrain_fs.glsl", GL_FRAGMENT_SHADER);
 
-	for (int i = 0; i < s->terrain->getPolyCount() * 9; i++) {
-	//	printf("%f\n", s->terrain->getVertexBuffer()[i]);
+	terrain_vs->compile();
+	terrain_fs->compile();
+
+	GLuint shader_program = glCreateProgram();
+	glAttachShader(shader_program, terrain_vs->getIndex());
+	glAttachShader(shader_program, terrain_fs->getIndex());
+	glLinkProgram(shader_program);
+
+	is_valid(shader_program);
+
+	terrain_shader = shader_program;
+	this->terrain = terrain;
+	return terrain;
+}
+
+GLuint Renderer::buildTerrainBuffers() {
+	printf("[REN] Building terrain buffers. \n\tTerrain polycount: %i\n", terrain->getPolyCount());
+	/*
+	for (int i = 0; i < terrain->getPolyCount() * 9; i++) {
+				printf("%f\n", terrain->getVertexBuffer()[i]);
 	}
-
+	*/
 	GLuint points_vbo = 0;
 	glGenBuffers(1, &points_vbo);
 	glBindBuffer(GL_ARRAY_BUFFER, points_vbo);
-	glBufferData(GL_ARRAY_BUFFER, s->terrain->getPolyCount() * 9 * sizeof(float), s->terrain->getVertexBuffer(), GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, terrain->getPolyCount() * 9 * sizeof(float), terrain->getVertexBuffer(), GL_STATIC_DRAW);
 
 	GLuint normals_vbo = 0;
 	glGenBuffers(1, &normals_vbo);
 	glBindBuffer(GL_ARRAY_BUFFER, normals_vbo);
-	glBufferData(GL_ARRAY_BUFFER, s->terrain->getPolyCount() * 9 * sizeof(float), s->terrain->getNormalBuffer(), GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, terrain->getPolyCount() * 9 * sizeof(float), terrain->getNormalBuffer(), GL_STATIC_DRAW);
 
 	GLuint vao = 0;
 	glGenVertexArrays(1, &vao);
@@ -573,34 +600,22 @@ void Renderer::loadTestScene() {
 	glEnableVertexAttribArray(0);
 	glEnableVertexAttribArray(1);
 
-	s->meshes.push_back(vao);
+	return vao;
+}
 
-	glEnable(GL_CULL_FACE); //cull face
-	glCullFace(GL_BACK); //cull back face
-	glFrontFace(GL_CW); //GL_CCW for counterclockwise
+void Renderer::assignTerrainBuffer(GLuint new_vao) {
+	terrain_vao = new_vao;
+}
 
-	//shaders
+void Renderer::loadTestScene() {
 
-	Shader* test_vs = new Shader("./Shader/terrain_vs.glsl", GL_VERTEX_SHADER);
-	Shader* test_fs = new Shader("./Shader/terrain_fs.glsl", GL_FRAGMENT_SHADER);
-
-	test_vs->compile();
-	test_fs->compile();
-
-	GLuint shader_program = glCreateProgram();
-	glAttachShader(shader_program, test_vs->getIndex());
-	glAttachShader(shader_program, test_fs->getIndex());
-	glLinkProgram(shader_program);
-
-	is_valid(shader_program);
-
-	s->terrain_shader=shader_program;
+	Scene* s = new Scene();
 
 	Shader* sky_vs = new Shader("./Shader/sky_vs.glsl", GL_VERTEX_SHADER);
 	Shader* sky_fs = new Shader("./Shader/sky_fs.glsl", GL_FRAGMENT_SHADER);
 	sky_vs->compile();
 	sky_fs->compile();
-	shader_program = glCreateProgram();
+	GLuint shader_program = glCreateProgram();
 	glAttachShader(shader_program, sky_vs->getIndex());
 	glAttachShader(shader_program, sky_fs->getIndex());
 	glLinkProgram(shader_program);
@@ -669,20 +684,20 @@ void Renderer::initCamera() {
 	
 
 	// terrain uniforms
-	proj_mat_location = glGetUniformLocation(cur_scene->terrain_shader, "projection_mat");
-	glUseProgram(cur_scene->terrain_shader);
+	proj_mat_location = glGetUniformLocation(terrain_shader, "projection_mat");
+	glUseProgram(terrain_shader);
 	glUniformMatrix4fv(proj_mat_location, 1, GL_FALSE, proj_mat);
 
-	view_mat_location = glGetUniformLocation(cur_scene->terrain_shader, "view_mat");
-	glUseProgram(cur_scene->terrain_shader);
+	view_mat_location = glGetUniformLocation(terrain_shader, "view_mat");
+	glUseProgram(terrain_shader);
 	glUniformMatrix4fv(view_mat_location, 1, GL_FALSE, glm::value_ptr(view_mat));
 
-	model_mat_location = glGetUniformLocation(cur_scene->terrain_shader, "model_mat");
-	glUseProgram(cur_scene->terrain_shader);
+	model_mat_location = glGetUniformLocation(terrain_shader, "model_mat");
+	glUseProgram(terrain_shader);
 	glUniformMatrix4fv(model_mat_location, 1, GL_FALSE, model_mat);
 
-	terrain_sun_direction = glGetUniformLocation(cur_scene->terrain_shader, "sun_direction");
-	glUseProgram(cur_scene->terrain_shader);
+	terrain_sun_direction = glGetUniformLocation(terrain_shader, "sun_direction");
+	glUseProgram(terrain_shader);
 	glUniform3fv(terrain_sun_direction, 1, glm::value_ptr(sun_direction));
 }
 
@@ -842,6 +857,10 @@ bool Renderer::closeRequested() {
 
 void Renderer::terminate() {
 	glfwTerminate();
+}
+
+glm::vec3 Renderer::getCamPos() { 
+	return cam.pos; 
 }
 
 glm::vec3 Renderer::getCamDir() {

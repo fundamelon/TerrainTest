@@ -15,10 +15,10 @@ vec3 Kd = vec3 (0.2, 0.2, 0.2); // grey diffuse surface reflectance
 vec3 Ka = vec3 (1.0, 1.0, 1.0); // fully reflect ambient light
 
 // surface colors
-vec3 green = vec3(0.35, 0.73, 0.32);
+vec3 green = vec3(0.2, 0.5, 0.12);
 //vec3 green = vec3(0, 0, 1);
 
-vec3 brown = vec3(0.50, 0.623, 0.28);
+vec3 brown = vec3(0.35, 0.35, 0.24);
 //vec3 brown = vec3(1, 0, 0);
 
 vec3 gray = vec3(0.4, 0.4, 0.4);
