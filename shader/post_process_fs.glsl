@@ -61,12 +61,12 @@ void main () {
    // invert color of right-hand side
   vec3 color;
   // only blur rhs for comparison
-  if (st.s >= 0.5) {
-    for (int i = 0; i < KERNEL_SIZE; i++) {
-      color += texture (tex, st + offset[i]).rgb * kernel_weights[i] * weights_factor;
-    }
-  } else {
+//  if (st.s >= 0.5) {
+//    for (int i = 0; i < KERNEL_SIZE; i++) {
+//      color += texture (tex, st + offset[i]).rgb * kernel_weights[i] * weights_factor;
+//    }
+//  } else {
     color = texture(tex, st).rgb;
-  }
+//  }
   frag_color = vec4 (color, 1.0);
 }

@@ -35,7 +35,7 @@ public:
 	~Renderer();
 
 	void init();
-	TerrainMesh* initTerrain();
+	void initTerrain();
 
 	void loadSkybox();
 	void loadFramebuffer();
@@ -49,6 +49,7 @@ public:
 	void renderScreenspaceQuad();
 
 	void setScene(Scene*);
+	void setTerrain(TerrainMesh*);
 
 	void initCamera();
 	glm::vec3 getCamPos();

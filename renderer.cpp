@@ -532,20 +532,7 @@ void Renderer::render() {
 //	printf("%f\n", cam.pos.z);
 }
 
-TerrainMesh*  Renderer::initTerrain() {
-	TerrainMesh* terrain = new TerrainMesh();
-	terrain->setSeed(9);
-	//	 8 : plains
-	//1000 : big cliff
-	/*
-	terrain->generateChunk(0, 0);
-	terrain->generateChunk(0, 1);
-	terrain->generateChunk(1, 0);
-	terrain->generateChunk(1, 1);
-	*/
-//	printf("%f\n", terrain->getChunkSpacing());
-
-	terrain->triangulate();
+void  Renderer::initTerrain() {
 
 	glEnable(GL_CULL_FACE); //cull face
 	glCullFace(GL_BACK); //cull back face
@@ -567,12 +554,14 @@ TerrainMesh*  Renderer::initTerrain() {
 	is_valid(shader_program);
 
 	terrain_shader = shader_program;
+}
+
+void Renderer::setTerrain(TerrainMesh* terrain) {
 	this->terrain = terrain;
-	return terrain;
 }
 
 GLuint Renderer::buildTerrainBuffers() {
-	printf("[REN] Building terrain buffers. \n\tTerrain polycount: %i\n", terrain->getPolyCount());
+//	printf("[REN] Building terrain buffers. \n\tTerrain polycount: %i\n", terrain->getPolyCount());
 	/*
 	for (int i = 0; i < terrain->getPolyCount() * 9; i++) {
 				printf("%f\n", terrain->getVertexBuffer()[i]);
@@ -644,7 +633,7 @@ void Renderer::initCamera() {
 	glm::mat4 view_mat = rot_mat * T;
 
 	//input variables
-	float near = 0.1f; //clipping plane
+	float near = 0.001f; //clipping plane
 	float far = 100.0f; //clipping plane
 	float fov = 67.0f * ONE_DEG_IN_RAD; //67 radians
 	float aspect = (float)g_gl_width / (float)g_gl_height;

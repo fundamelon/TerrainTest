@@ -10,15 +10,15 @@ struct Chunk {
 	int lod;
 	glm::vec2 origin;
 	glm::ivec2 addr;
-	float* verts;
+	glm::vec3* points;
 };
 
 //Index triangle.  Used in export
 struct Tri {
 	//index data
-	int verts[3];
+	glm::vec3* verts[3];
 	//edge flags
-	bool top = false, right = false;
+	bool top = false, right = false, left = false, bottom = false;
 	//flag if tri is top or bottom of a pair
 	bool major = false, minor = false;
 };
@@ -60,6 +60,8 @@ public:
 
 	bool containsChunkAt(int, int);
 
+	bool flag_updating = false;
+	bool flag_generating = false;
 	bool flag_updated = true;
 	bool flag_bufready = true;
 	bool flag_force_update = false;
@@ -68,14 +70,15 @@ public:
 
 private:
 	std::vector<Chunk*> chunks;
-	std::vector<Tri>* tris;
+	std::vector<Tri> tris;
 	std::vector<glm::ivec2> chunk_gen_queue;
 	std::vector<glm::ivec2> chunk_del_queue;
 
 	glm::ivec2 chunkPos;
 
 	int seed = 0;
-	int lod_count = 5;
+	int lod_count = 6;
+	unsigned int polycount = 0;
 
 	noise::module::Billow baseFlatTerrain;
 	noise::module::RidgedMulti mountainTerrain;
