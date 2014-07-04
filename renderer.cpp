@@ -561,7 +561,7 @@ void Renderer::setTerrain(TerrainMesh* terrain) {
 }
 
 GLuint Renderer::buildTerrainBuffers() {
-//	printf("[REN] Building terrain buffers. \n\tTerrain polycount: %i\n", terrain->getPolyCount());
+	printf("[REN] Building terrain buffers. \n\tTerrain polycount: %i\n", terrain->getPolyCount());
 	/*
 	for (int i = 0; i < terrain->getPolyCount() * 9; i++) {
 				printf("%f\n", terrain->getVertexBuffer()[i]);

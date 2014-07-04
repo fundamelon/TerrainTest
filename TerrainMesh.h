@@ -8,19 +8,16 @@
 //Element of terrain.  Only data here.
 struct Chunk {
 	int lod;
+	bool deleting = false;
 	glm::vec2 origin;
 	glm::ivec2 addr;
-	glm::vec3* points;
+	glm::vec3* verts;
 };
 
 //Index triangle.  Used in export
 struct Tri {
 	//index data
 	glm::vec3* verts[3];
-	//edge flags
-	bool top = false, right = false, left = false, bottom = false;
-	//flag if tri is top or bottom of a pair
-	bool major = false, minor = false;
 };
 
 //Float triangle, used to directly give values
@@ -66,13 +63,12 @@ public:
 	bool flag_bufready = true;
 	bool flag_force_update = false;
 
-	int chunk_dist = 16;
+	int chunk_dist = 6;
 
 private:
 	std::vector<Chunk*> chunks;
 	std::vector<Tri> tris;
 	std::vector<glm::ivec2> chunk_gen_queue;
-	std::vector<glm::ivec2> chunk_del_queue;
 
 	glm::ivec2 chunkPos;
 
