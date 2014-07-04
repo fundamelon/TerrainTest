@@ -55,14 +55,13 @@ void TerrainMesh::generateChunk(int x, int y, int lod) {
 	//iterate through grid
 	for (unsigned int row = 0; row < GRID_SIZE; row++) {
 		for (unsigned int col = 0; col < GRID_SIZE; col++) {
-			c->verts[vert_i] = glm::vec3(0.0f);
+			c->verts[vert_i].x = (col * GRID_SPACING) + c->origin.x; // x
+			c->verts[vert_i].y = (row * GRID_SPACING) + c->origin.y; // y
 
 			//only call displacement calculation if LOD will display it.
 			if (row % lod_mul != 0 || col % lod_mul != 0) {
-				c->verts[vert_i].z = 0;
+				c->verts[vert_i].z = 100;
 			} else {
-				c->verts[vert_i].x = (col * GRID_SPACING) + c->origin.x; // x
-				c->verts[vert_i].y = (row * GRID_SPACING) + c->origin.y; // y
 				c->verts[vert_i].z = getTerrainDisplacement(glm::vec2(c->verts[vert_i].x * scale, c->verts[vert_i].y * scale)); // z
 			}
 			//increment to next vertex
@@ -193,14 +192,137 @@ void TerrainMesh::triangulate() {
 
 						tris.push_back(t1);
 						tris.push_back(t2);
+
+					} else if (neighbor_top->lod > c->lod && neighbor_right->lod == c->lod) {
+						// higher to lower LOD, top edge only
+
+						Tri t1 = Tri();
+						Tri t2 = Tri();
+						Tri t3 = Tri();
+
+						t1.verts[0] = &c->verts[col - lod_mul + (row * size)]; // bottom left
+						t1.verts[1] = &neighbor_top->verts[col - lod_mul]; // top left
+						t1.verts[2] = &c->verts[col + (row * size)]; // bottom mid
+
+						t2.verts[0] = &c->verts[col + (row * size)]; // bottom mid
+						t2.verts[1] = &neighbor_corner->verts[0]; // top right
+						t2.verts[2] = &neighbor_right->verts[(row * size)]; // bottom right
+
+						t3.verts[0] = &neighbor_top->verts[col - lod_mul]; // top left
+						t3.verts[1] = &neighbor_corner->verts[0]; // top right
+						t3.verts[2] = &c->verts[col + (row * size)]; // bottom mid
+
+						tris.push_back(t1);
+						tris.push_back(t2);
+						tris.push_back(t3);
+
+					} else if (neighbor_top->lod == c->lod && neighbor_right->lod > c->lod) {
+						//higher to lower LOD, right edge only
+
+						Tri t1 = Tri();
+						Tri t2 = Tri();
+						Tri t3 = Tri();
+
+						t1.verts[0] = &neighbor_top->verts[col]; // top left
+						t1.verts[1] = &neighbor_corner->verts[0]; // top right
+						t1.verts[2] = &c->verts[col + ((row )* size)]; // left mid
+
+						t2.verts[0] = &c->verts[col + ((row)* size)]; // left mid
+						t2.verts[1] = &neighbor_right->verts[((row - lod_mul) * size)]; // bottom right
+						t2.verts[2] = &c->verts[col + ((row - lod_mul) * size)]; // bottom left
+
+						t3.verts[0] = &neighbor_corner->verts[0]; // top right
+						t3.verts[1] = &neighbor_right->verts[((row - lod_mul) * size)]; // bottom right
+						t3.verts[2] = &c->verts[col + ((row)* size)]; // left mid
+
+						tris.push_back(t1);
+						tris.push_back(t2);
+						tris.push_back(t3);
+
+					} else if (neighbor_top->lod < c->lod && neighbor_right->lod == c->lod) {
+						// lower to higher LOD, top edge only
+
+						Tri t1 = Tri();
+						Tri t2 = Tri();
+						Tri t3 = Tri();
+
+						t1.verts[0] = &c->verts[col + (row * size)]; // bottom left
+						t1.verts[1] = &neighbor_top->verts[col]; // top left
+						t1.verts[2] = &neighbor_top->verts[col + lod_mul / 2]; // top mid
+
+						t2.verts[0] = &neighbor_top->verts[col + lod_mul / 2]; // top mid
+						t2.verts[1] = &neighbor_corner->verts[0]; // top right
+						t2.verts[2] = &neighbor_right->verts[(row * size)]; // bottom right
+
+						t3.verts[0] = &c->verts[col + (row * size)]; // bottom left
+						t3.verts[1] = &neighbor_top->verts[col + lod_mul / 2]; // top mid
+						t3.verts[2] = &neighbor_right->verts[(row * size)]; // bottom right
+
+						tris.push_back(t1);
+						tris.push_back(t2);
+						tris.push_back(t3);
+
+
+					} else if (neighbor_top->lod == c->lod && neighbor_right->lod < c->lod) {
+						// lower to higher LOD, right edge only
+
+						Tri t1 = Tri();
+						Tri t2 = Tri();
+						Tri t3 = Tri();
+
+						t1.verts[0] = &neighbor_top->verts[col]; // top left
+						t1.verts[1] = &neighbor_corner->verts[0]; // top right
+						t1.verts[2] = &neighbor_right->verts[((row + lod_mul / 2) * size)]; // right mid
+
+						t2.verts[0] = &neighbor_right->verts[((row + lod_mul / 2) * size)]; // right mid
+						t2.verts[1] = &neighbor_right->verts[(row * size)]; // bottom right
+						t2.verts[2] = &c->verts[col + (row* size)]; // bottom left
+
+						t3.verts[0] = &neighbor_top->verts[col]; // top left
+						t3.verts[1] = &neighbor_right->verts[((row + lod_mul / 2) * size)]; // right mid
+						t3.verts[2] = &c->verts[col + (row* size)]; // bottom left
+
+						tris.push_back(t1);
+						tris.push_back(t2);
+						tris.push_back(t3);
+
+					} else if (neighbor_top->lod > c->lod && neighbor_right->lod > c->lod) {
+						// higher to lower LOD, both edges
+
+						Tri t1 = Tri();
+						Tri t2 = Tri();
+						Tri t3 = Tri();
+						Tri t4 = Tri();
+
+						t1.verts[0] = &c->verts[col - lod_mul + ((row)* size)]; // mid left
+						t1.verts[1] = &neighbor_top->verts[col - lod_mul]; // top left
+						t1.verts[2] = &c->verts[col + ((row)* size)]; // mid
+
+						t2.verts[0] = &c->verts[col + ((row - lod_mul)* size)]; // mid bottom
+						t2.verts[1] = &c->verts[col + ((row)* size)]; // mid
+						t2.verts[2] = &neighbor_right->verts[((row - lod_mul) * size)]; // bottom right
+
+						t3.verts[0] = &neighbor_top->verts[col - lod_mul]; // top left
+						t3.verts[1] = &neighbor_corner->verts[0]; // top right
+						t3.verts[2] = &c->verts[col + ((row)* size)]; // mid
+
+						t4.verts[0] = &c->verts[col + ((row)* size)]; // mid
+						t4.verts[1] = &neighbor_corner->verts[0]; // top right
+						t4.verts[2] = &neighbor_right->verts[((row - lod_mul) * size)]; // bottom right
+
+						tris.push_back(t1);
+						tris.push_back(t2);
+						tris.push_back(t3);
+						tris.push_back(t4);
 					}
 
 				} else if (top) {
 					//TOP EDGE
 
-					//equivalent LOD connection
 					if (neighbor_top == 0) continue;
 					if (neighbor_top->lod == c->lod) {
+						//equivalent LOD connection
+
 						Tri t1 = Tri();
 						Tri t2 = Tri();
 
@@ -214,6 +336,53 @@ void TerrainMesh::triangulate() {
 
 						tris.push_back(t1);
 						tris.push_back(t2);
+					} else if (neighbor_top->lod == c->lod-1) {
+						//lower to higher detail
+
+						Tri t1 = Tri();
+						Tri t2 = Tri();
+						Tri t3 = Tri();
+
+						t1.verts[0] = &c->verts[col + (row * size)]; // bottom left
+						t1.verts[1] = &neighbor_top->verts[col]; // top left
+						t1.verts[2] = &neighbor_top->verts[col + lod_mul/2]; // top mid
+
+						t2.verts[0] = &neighbor_top->verts[col + lod_mul/2]; // top mid
+						t2.verts[1] = &neighbor_top->verts[col + lod_mul]; // top right
+						t2.verts[2] = &c->verts[col + lod_mul + (row * size)]; // bottom right
+
+						t3.verts[0] = &c->verts[col + (row * size)]; // bottom left
+						t3.verts[1] = &neighbor_top->verts[col + lod_mul / 2]; // top mid
+						t3.verts[2] = &c->verts[col + lod_mul + (row * size)]; // bottom right
+
+						tris.push_back(t1);
+						tris.push_back(t2);
+						tris.push_back(t3);
+
+					} else if ( neighbor_top->lod == c->lod + 1 
+						&& col % (lod_mul*2) == 0 // skip every other
+						&& col < GRID_SIZE - lod_mul*2) { // disclude second before edge (handled by corner triangulation)
+						//higher to lower detail
+
+						Tri t1 = Tri();
+						Tri t2 = Tri();
+						Tri t3 = Tri();
+
+						t1.verts[0] = &c->verts[col + (row * size)]; // bottom left
+						t1.verts[1] = &neighbor_top->verts[col]; // top left
+						t1.verts[2] = &c->verts[col + lod_mul + (row * size)]; // bottom mid
+
+						t2.verts[0] = &c->verts[col + lod_mul + (row * size)]; // bottom mid
+						t2.verts[1] = &neighbor_top->verts[col + lod_mul*2]; // top right
+						t2.verts[2] = &c->verts[col + lod_mul*2 + (row * size)]; // bottom right
+
+						t3.verts[0] = &neighbor_top->verts[col]; // top left
+						t3.verts[1] = &neighbor_top->verts[col + lod_mul * 2]; // top right
+						t3.verts[2] = &c->verts[col + lod_mul + (row * size)]; // bottom mid
+
+						tris.push_back(t1);
+						tris.push_back(t2);
+						tris.push_back(t3);
 					}
 
 				} else if (right) {
@@ -236,6 +405,53 @@ void TerrainMesh::triangulate() {
 
 						tris.push_back(t1);
 						tris.push_back(t2);
+					} else if (neighbor_right->lod == c->lod - 1) {
+						//lower to higher detail
+
+						Tri t1 = Tri();
+						Tri t2 = Tri();
+						Tri t3 = Tri();
+
+						t1.verts[0] = &c->verts[col + ((row + lod_mul)* size)]; // top left
+						t1.verts[1] = &neighbor_right->verts[((row + lod_mul) * size)]; // top right
+						t1.verts[2] = &neighbor_right->verts[((row + lod_mul/2) * size)]; // right mid
+
+						t2.verts[0] = &neighbor_right->verts[((row + lod_mul / 2) * size)]; // right mid
+						t2.verts[1] = &neighbor_right->verts[(row * size)]; // bottom right
+						t2.verts[2] = &c->verts[col + (row* size)]; // bottom left
+
+						t3.verts[0] = &c->verts[col + ((row + lod_mul)* size)]; // top left
+						t3.verts[1] = &neighbor_right->verts[((row + lod_mul / 2) * size)]; // right mid
+						t3.verts[2] = &c->verts[col + (row* size)]; // bottom left
+
+						tris.push_back(t1);
+						tris.push_back(t2);
+						tris.push_back(t3);
+
+					} else if (neighbor_right->lod == c->lod + 1
+						&& row % (lod_mul * 2) == 0 // skip every other
+						&& row < GRID_SIZE - lod_mul * 2) { // disclude second before edge (handled by corner triangulation)
+						//higher to lower detail
+
+						Tri t1 = Tri();
+						Tri t2 = Tri();
+						Tri t3 = Tri();
+
+						t1.verts[0] = &c->verts[col + ((row + lod_mul*2)* size)]; // top left
+						t1.verts[1] = &neighbor_right->verts[((row + lod_mul*2) * size)]; // top right
+						t1.verts[2] = &c->verts[col + ((row + lod_mul)* size)]; // left mid
+
+						t2.verts[0] = &c->verts[col + ((row + lod_mul)* size)]; // left mid
+						t2.verts[1] = &neighbor_right->verts[(row * size)]; // bottom right
+						t2.verts[2] = &c->verts[col + (row* size)]; // bottom left
+
+						t3.verts[0] = &neighbor_right->verts[((row + lod_mul*2) * size)]; // top right
+						t3.verts[1] = &neighbor_right->verts[(row * size)]; // bottom right
+						t3.verts[2] = &c->verts[col + ((row + lod_mul)* size)]; // left mid
+
+						tris.push_back(t1);
+						tris.push_back(t2);
+						tris.push_back(t3);
 					}
 
 				} else {

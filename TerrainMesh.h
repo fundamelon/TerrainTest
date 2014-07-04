@@ -63,7 +63,7 @@ public:
 	bool flag_bufready = true;
 	bool flag_force_update = false;
 
-	int chunk_dist = 6;
+	int chunk_dist = 16;
 
 private:
 	std::vector<Chunk*> chunks;
