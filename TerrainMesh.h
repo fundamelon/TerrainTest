@@ -63,7 +63,7 @@ public:
 	bool flag_bufready = true;
 	bool flag_force_update = false;
 
-	int chunk_dist = 16;
+	int chunk_dist = 20;
 
 private:
 	std::vector<Chunk*> chunks;
@@ -75,12 +75,28 @@ private:
 	int seed = 0;
 	int lod_count = 6;
 	unsigned int polycount = 0;
+	unsigned int dist_div = 1;
 
 	noise::module::Billow baseFlatTerrain;
-	noise::module::RidgedMulti mountainTerrain;
 	noise::module::ScaleBias flatTerrain;
-	noise::module::Perlin terrainType;
-	noise::module::Select terrainSelector;
+
+	noise::module::RidgedMulti hillTerrain;
+	noise::module::Turbulence hillTurbulence;
+
+	noise::module::RidgedMulti baseMountainTerrain;
+	noise::module::Perlin baseFoothillTerrain;
+	noise::module::ScaleBias terrainTypeHillScaler;
+	noise::module::ScaleBias mountainTerrain;
+	noise::module::ScaleBias foothillTerrain;
+
+	noise::module::Perlin terrainTypeHill;
+	noise::module::Perlin terrainTypeMountain;
+	noise::module::Perlin terrainTypeFoothill;
+
+	noise::module::Select hillSelector;
+	noise::module::Add mountainAdder;
+	noise::module::Select mountainSelector;
+
 	noise::module::Turbulence finalTerrain;
 
 	noise::module::Perlin terrainSwirl;

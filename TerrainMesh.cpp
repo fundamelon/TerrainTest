@@ -4,25 +4,55 @@
 TerrainMesh::TerrainMesh() {
 	printf("[TER] Initializing terrain...\n");
 
+	//flat plains
 	baseFlatTerrain.SetFrequency(2.0);
 
 	flatTerrain.SetSourceModule(0, baseFlatTerrain);
 	flatTerrain.SetScale(0.125);
 	flatTerrain.SetBias(-0.75);
 
-	terrainType.SetFrequency(0.5);
-	terrainType.SetPersistence(0.25);
+	//hill selector
+	terrainTypeHill.SetFrequency(0.5);
+	terrainTypeHill.SetPersistence(0.25);
 
-	terrainSelector.SetSourceModule(0, flatTerrain);
-	terrainSelector.SetSourceModule(1, mountainTerrain);
-	terrainSelector.SetControlModule(terrainType);
-	terrainSelector.SetBounds(0.0, 1000.0);
-	terrainSelector.SetEdgeFalloff(0.125);
+	//combine hills
+	hillSelector.SetSourceModule(0, flatTerrain);
+	hillSelector.SetSourceModule(1, hillTerrain);
+	hillSelector.SetControlModule(terrainTypeHill);
+	hillSelector.SetBounds(0.0, 1000.0);
+	hillSelector.SetEdgeFalloff(0.125);
 
-	finalTerrain.SetSourceModule(0, terrainSelector);
-	finalTerrain.SetFrequency(2.0);
-	finalTerrain.SetPower(0.125);
+	hillTurbulence.SetSourceModule(0, hillSelector);
+	hillTurbulence.SetFrequency(2.0);
+	hillTurbulence.SetPower(0.125);
 
+	//mountains
+	baseMountainTerrain.SetFrequency(0.3f);
+	mountainTerrain.SetSourceModule(0, baseMountainTerrain);
+	mountainTerrain.SetScale(5.0f);
+	mountainTerrain.SetBias(5.0f);
+
+	foothillTerrain.SetSourceModule(0, hillTerrain);
+
+	mountainAdder.SetSourceModule(0, foothillTerrain);
+	mountainAdder.SetSourceModule(1, mountainTerrain);
+
+	//mountain selector
+	terrainTypeMountain.SetFrequency(0.3f);
+	terrainTypeMountain.SetPersistence(0.1);
+	terrainTypeMountain.SetLacunarity(0.1);
+
+	//combine mountains
+	mountainSelector.SetSourceModule(0, hillTurbulence);
+	mountainSelector.SetSourceModule(1, mountainAdder);
+	mountainSelector.SetControlModule(terrainTypeMountain);
+	mountainSelector.SetBounds(-1.0, -0.4f);
+	mountainSelector.SetEdgeFalloff(0.25f);
+
+	//final
+	finalTerrain.SetSourceModule(0, mountainSelector);
+	finalTerrain.SetFrequency(1.0);
+	finalTerrain.SetPower(0);
 }
 
 TerrainMesh::~TerrainMesh() {
@@ -33,9 +63,7 @@ TerrainMesh::~TerrainMesh() {
 }
 
 float TerrainMesh::getTerrainDisplacement(glm::vec2 pos) {
-	double displacement = 0;;
-	displacement += finalTerrain.GetValue(pos.x * 0.01f, pos.y * 0.01f, 0.5);
-	return (float)displacement;
+	return (float)finalTerrain.GetValue(pos.x * 0.01f, pos.y * 0.01f, 0.5);
 }
 
 void TerrainMesh::generateChunk(int x, int y, int lod) {
@@ -109,7 +137,7 @@ void TerrainMesh::updateChunks() {
 			}
 		}
 	}
-	printf("[TER]\tChunks to generate: %i\n\tChunks to delete: %i\n", chunk_gen_queue.size(), deleting_count);
+//	printf("[TER]\tChunks to generate: %i\n\tChunks to delete: %i\n", chunk_gen_queue.size(), deleting_count);
 
 	for (int i = 0; i < chunks.size(); i++) {
 		Chunk* c = chunks.at(i);
@@ -130,7 +158,7 @@ void TerrainMesh::updateChunks() {
 		if (chunks.at(i)->deleting) {
 			//TODO: Fix memory leaking
 
-			printf("[TER] Deleting chunk at <%i, %i>\n", chunks.at(i)->addr.x, chunks.at(i)->addr.y);
+		//	printf("[TER] Deleting chunk at <%i, %i>\n", chunks.at(i)->addr.x, chunks.at(i)->addr.y);
 
 			delete[] chunks.at(i)->verts;
 
@@ -532,8 +560,16 @@ void TerrainMesh::setSeed(int seed) {
 
 	//set seed of all noise modules
 	baseFlatTerrain.SetSeed(seed);
-	mountainTerrain.SetSeed(seed);
-	terrainType.SetSeed(seed);
+	baseMountainTerrain.SetSeed(seed);
+	baseFoothillTerrain.SetSeed(seed);
+
+	hillTerrain.SetSeed(seed);
+	hillTurbulence.SetSeed(seed);
+
+	terrainTypeHill.SetSeed(seed);
+	terrainTypeMountain.SetSeed(seed+1);
+	terrainTypeFoothill.SetSeed(seed+1);
+
 	finalTerrain.SetSeed(seed);
 }
 
@@ -561,11 +597,11 @@ unsigned int TerrainMesh::getPolyCount() {
 }
 
 unsigned int TerrainMesh::getLOD(Chunk* c) {
-	int dx = abs(chunkPos.x - c->addr.x)/1 - 1;
-	int dy = abs(chunkPos.y - c->addr.y)/1 - 1;
+	int dx = abs(chunkPos.x - c->addr.x) / dist_div - 1;
+	int dy = abs(chunkPos.y - c->addr.y) / dist_div - 1;
 	int d = fmax(dx, dy);
 
-	if (d >= 5 && d<=7) d = 4;
+	if (dist_div == 1 && d >= 5 && d<=7) d = 4;
 
 	return fmax(0, fmin(lod_count - 1, d));
 }

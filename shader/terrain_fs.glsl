@@ -55,7 +55,7 @@ void main () {
 	const vec3 fog_color = mix(vec3(0.1, 0.1, 0.1), vec3(0.6, 0.7, 0.8), cycle_factor);
 
 	const float min_fog_radius = 0.0;
-	const float max_fog_radius = 50.0;
+	const float max_fog_radius = 60.0;
 
 	// work out distance from camera to point
 	float dist = length (-position_eye);
