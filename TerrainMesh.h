@@ -1,4 +1,6 @@
 #include <vector>
+#include <set>
+#include <algorithm>
 #include <glm/glm.hpp>
 #include <noise/noise.h>
 
@@ -6,18 +8,29 @@
 #define GRID_SPACING 0.1f
 
 //Element of terrain.  Only data here.
+struct Tri;
+
+const int max_poly_per_vertex = 16;
+
+struct Point {
+	glm::vec3 vert;
+	glm::vec3 norm;
+	int users[max_poly_per_vertex];
+};
+
 struct Chunk {
 	int lod;
 	bool deleting = false;
 	glm::vec2 origin;
 	glm::ivec2 addr;
-	glm::vec3* verts;
+	Point* points;
 };
 
 //Index triangle.  Used in export
 struct Tri {
 	//index data
-	glm::vec3* verts[3];
+	Point* points[3];
+	glm::vec3 norm;
 };
 
 //Float triangle, used to directly give values
@@ -57,11 +70,15 @@ public:
 
 	bool containsChunkAt(int, int);
 
+	//status flags
 	bool flag_updating = false;
 	bool flag_generating = false;
 	bool flag_updated = true;
 	bool flag_bufready = true;
+
+	//control flags
 	bool flag_force_update = false;
+	bool flag_force_facenormals = false;
 
 	int chunk_dist = 20;
 
@@ -73,9 +90,18 @@ private:
 	glm::ivec2 chunkPos;
 
 	int seed = 0;
-	int lod_count = 6;
+
+	//LOD controller
+	int lod_count = log2(GRID_SIZE) + 1;
+
+	//Determines which LOD to use at distance.
+	//1: near
+	//2: med
+	//3: far
+	unsigned int dist_div = 2;
+
+	//stores amount of polygons during re-generation procedures.
 	unsigned int polycount = 0;
-	unsigned int dist_div = 1;
 
 	noise::module::Billow baseFlatTerrain;
 	noise::module::ScaleBias flatTerrain;

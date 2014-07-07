@@ -79,18 +79,23 @@ void TerrainMesh::generateChunk(int x, int y, int lod) {
 	int scale = 5;
 	int lod_mul = pow(2, c->lod);
 
-	c->verts = new glm::vec3[GRID_SIZE * GRID_SIZE];
+	c->points = new Point[GRID_SIZE * GRID_SIZE];
 	//iterate through grid
 	for (unsigned int row = 0; row < GRID_SIZE; row++) {
 		for (unsigned int col = 0; col < GRID_SIZE; col++) {
-			c->verts[vert_i].x = (col * GRID_SPACING) + c->origin.x; // x
-			c->verts[vert_i].y = (row * GRID_SPACING) + c->origin.y; // y
+			c->points[vert_i].vert.x = (col * GRID_SPACING) + c->origin.x; // x
+			c->points[vert_i].vert.y = (row * GRID_SPACING) + c->origin.y; // y
 
 			//only call displacement calculation if LOD will display it.
 			if (row % lod_mul != 0 || col % lod_mul != 0) {
-				c->verts[vert_i].z = 100;
+				c->points[vert_i].vert.z = 100;
 			} else {
-				c->verts[vert_i].z = getTerrainDisplacement(glm::vec2(c->verts[vert_i].x * scale, c->verts[vert_i].y * scale)); // z
+				float x = c->points[vert_i].vert.x * scale;
+				float y = c->points[vert_i].vert.y * scale;
+				c->points[vert_i].vert.z = getTerrainDisplacement(glm::vec2(x, y)); // z
+
+				for (int i = 0; i < max_poly_per_vertex; i++)
+					c->points[vert_i].users[i] = -1;
 			}
 			//increment to next vertex
 			vert_i ++;
@@ -160,8 +165,7 @@ void TerrainMesh::updateChunks() {
 
 		//	printf("[TER] Deleting chunk at <%i, %i>\n", chunks.at(i)->addr.x, chunks.at(i)->addr.y);
 
-			delete[] chunks.at(i)->verts;
-
+			delete[] chunks.at(i)->points;
 			delete chunks.at(i);
 			chunks.erase(chunks.begin() + i);
 			i--;
@@ -194,13 +198,22 @@ void TerrainMesh::triangulate() {
 
 		int lod_mul = pow(2, c->lod);
 
+		for (unsigned int j = 0; j < GRID_SIZE * GRID_SIZE; j++) {
+			for (int k = 0; k < 8; k++) {
+				c->points[j].users[k] = -1;
+			}
+		}
+
 		for (unsigned int row = 0; row <= GRID_SIZE - lod_mul; row += lod_mul) {
 			for (unsigned int col = 0; col <= GRID_SIZE - lod_mul; col += lod_mul) {
+				int prev_size = tris.size();
 
 				bool top = row == GRID_SIZE - lod_mul;
 				bool right = col == GRID_SIZE - lod_mul;
 
-				//edge stitching
+				Tri* patch[3] = { 0, 0, 0 };
+
+				//EDGE PATCH CREATION
 				if (top && right) {
 					//CORNER 
 
@@ -210,13 +223,13 @@ void TerrainMesh::triangulate() {
 						Tri t1 = Tri();
 						Tri t2 = Tri();
 
-						t1.verts[0] = &c->verts[col + (row * size)]; // bottom left
-						t1.verts[1] = &neighbor_top->verts[col]; // top left
-						t1.verts[2] = &neighbor_corner->verts[0]; // top right
+						t1.points[0] = &c->points[col + (row * size)]; // bottom left
+						t1.points[1] = &neighbor_top->points[col]; // top left
+						t1.points[2] = &neighbor_corner->points[0]; // top right
 
-						t2.verts[0] = &neighbor_corner->verts[0]; // top right
-						t2.verts[1] = &neighbor_right->verts[(row * size)]; // bottom right
-						t2.verts[2] = &c->verts[col + (row * size)]; // bottom left
+						t2.points[0] = &neighbor_corner->points[0]; // top right
+						t2.points[1] = &neighbor_right->points[(row * size)]; // bottom right
+						t2.points[2] = &c->points[col + (row * size)]; // bottom left
 
 						tris.push_back(t1);
 						tris.push_back(t2);
@@ -228,17 +241,17 @@ void TerrainMesh::triangulate() {
 						Tri t2 = Tri();
 						Tri t3 = Tri();
 
-						t1.verts[0] = &c->verts[col - lod_mul + (row * size)]; // bottom left
-						t1.verts[1] = &neighbor_top->verts[col - lod_mul]; // top left
-						t1.verts[2] = &c->verts[col + (row * size)]; // bottom mid
+						t1.points[0] = &c->points[col - lod_mul + (row * size)]; // bottom left
+						t1.points[1] = &neighbor_top->points[col - lod_mul]; // top left
+						t1.points[2] = &c->points[col + (row * size)]; // bottom mid
 
-						t2.verts[0] = &c->verts[col + (row * size)]; // bottom mid
-						t2.verts[1] = &neighbor_corner->verts[0]; // top right
-						t2.verts[2] = &neighbor_right->verts[(row * size)]; // bottom right
+						t2.points[0] = &c->points[col + (row * size)]; // bottom mid
+						t2.points[1] = &neighbor_corner->points[0]; // top right
+						t2.points[2] = &neighbor_right->points[(row * size)]; // bottom right
 
-						t3.verts[0] = &neighbor_top->verts[col - lod_mul]; // top left
-						t3.verts[1] = &neighbor_corner->verts[0]; // top right
-						t3.verts[2] = &c->verts[col + (row * size)]; // bottom mid
+						t3.points[0] = &neighbor_top->points[col - lod_mul]; // top left
+						t3.points[1] = &neighbor_corner->points[0]; // top right
+						t3.points[2] = &c->points[col + (row * size)]; // bottom mid
 
 						tris.push_back(t1);
 						tris.push_back(t2);
@@ -251,17 +264,17 @@ void TerrainMesh::triangulate() {
 						Tri t2 = Tri();
 						Tri t3 = Tri();
 
-						t1.verts[0] = &neighbor_top->verts[col]; // top left
-						t1.verts[1] = &neighbor_corner->verts[0]; // top right
-						t1.verts[2] = &c->verts[col + ((row )* size)]; // left mid
+						t1.points[0] = &neighbor_top->points[col]; // top left
+						t1.points[1] = &neighbor_corner->points[0]; // top right
+						t1.points[2] = &c->points[col + ((row )* size)]; // left mid
 
-						t2.verts[0] = &c->verts[col + ((row)* size)]; // left mid
-						t2.verts[1] = &neighbor_right->verts[((row - lod_mul) * size)]; // bottom right
-						t2.verts[2] = &c->verts[col + ((row - lod_mul) * size)]; // bottom left
+						t2.points[0] = &c->points[col + ((row)* size)]; // left mid
+						t2.points[1] = &neighbor_right->points[((row - lod_mul) * size)]; // bottom right
+						t2.points[2] = &c->points[col + ((row - lod_mul) * size)]; // bottom left
 
-						t3.verts[0] = &neighbor_corner->verts[0]; // top right
-						t3.verts[1] = &neighbor_right->verts[((row - lod_mul) * size)]; // bottom right
-						t3.verts[2] = &c->verts[col + ((row)* size)]; // left mid
+						t3.points[0] = &neighbor_corner->points[0]; // top right
+						t3.points[1] = &neighbor_right->points[((row - lod_mul) * size)]; // bottom right
+						t3.points[2] = &c->points[col + ((row)* size)]; // left mid
 
 						tris.push_back(t1);
 						tris.push_back(t2);
@@ -274,17 +287,17 @@ void TerrainMesh::triangulate() {
 						Tri t2 = Tri();
 						Tri t3 = Tri();
 
-						t1.verts[0] = &c->verts[col + (row * size)]; // bottom left
-						t1.verts[1] = &neighbor_top->verts[col]; // top left
-						t1.verts[2] = &neighbor_top->verts[col + lod_mul / 2]; // top mid
+						t1.points[0] = &c->points[col + (row * size)]; // bottom left
+						t1.points[1] = &neighbor_top->points[col]; // top left
+						t1.points[2] = &neighbor_top->points[col + lod_mul / 2]; // top mid
 
-						t2.verts[0] = &neighbor_top->verts[col + lod_mul / 2]; // top mid
-						t2.verts[1] = &neighbor_corner->verts[0]; // top right
-						t2.verts[2] = &neighbor_right->verts[(row * size)]; // bottom right
+						t2.points[0] = &neighbor_top->points[col + lod_mul / 2]; // top mid
+						t2.points[1] = &neighbor_corner->points[0]; // top right
+						t2.points[2] = &neighbor_right->points[(row * size)]; // bottom right
 
-						t3.verts[0] = &c->verts[col + (row * size)]; // bottom left
-						t3.verts[1] = &neighbor_top->verts[col + lod_mul / 2]; // top mid
-						t3.verts[2] = &neighbor_right->verts[(row * size)]; // bottom right
+						t3.points[0] = &c->points[col + (row * size)]; // bottom left
+						t3.points[1] = &neighbor_top->points[col + lod_mul / 2]; // top mid
+						t3.points[2] = &neighbor_right->points[(row * size)]; // bottom right
 
 						tris.push_back(t1);
 						tris.push_back(t2);
@@ -298,17 +311,17 @@ void TerrainMesh::triangulate() {
 						Tri t2 = Tri();
 						Tri t3 = Tri();
 
-						t1.verts[0] = &neighbor_top->verts[col]; // top left
-						t1.verts[1] = &neighbor_corner->verts[0]; // top right
-						t1.verts[2] = &neighbor_right->verts[((row + lod_mul / 2) * size)]; // right mid
+						t1.points[0] = &neighbor_top->points[col]; // top left
+						t1.points[1] = &neighbor_corner->points[0]; // top right
+						t1.points[2] = &neighbor_right->points[((row + lod_mul / 2) * size)]; // right mid
 
-						t2.verts[0] = &neighbor_right->verts[((row + lod_mul / 2) * size)]; // right mid
-						t2.verts[1] = &neighbor_right->verts[(row * size)]; // bottom right
-						t2.verts[2] = &c->verts[col + (row* size)]; // bottom left
+						t2.points[0] = &neighbor_right->points[((row + lod_mul / 2) * size)]; // right mid
+						t2.points[1] = &neighbor_right->points[(row * size)]; // bottom right
+						t2.points[2] = &c->points[col + (row* size)]; // bottom left
 
-						t3.verts[0] = &neighbor_top->verts[col]; // top left
-						t3.verts[1] = &neighbor_right->verts[((row + lod_mul / 2) * size)]; // right mid
-						t3.verts[2] = &c->verts[col + (row* size)]; // bottom left
+						t3.points[0] = &neighbor_top->points[col]; // top left
+						t3.points[1] = &neighbor_right->points[((row + lod_mul / 2) * size)]; // right mid
+						t3.points[2] = &c->points[col + (row* size)]; // bottom left
 
 						tris.push_back(t1);
 						tris.push_back(t2);
@@ -322,21 +335,21 @@ void TerrainMesh::triangulate() {
 						Tri t3 = Tri();
 						Tri t4 = Tri();
 
-						t1.verts[0] = &c->verts[col - lod_mul + ((row)* size)]; // mid left
-						t1.verts[1] = &neighbor_top->verts[col - lod_mul]; // top left
-						t1.verts[2] = &c->verts[col + ((row)* size)]; // mid
+						t1.points[0] = &c->points[col - lod_mul + ((row)* size)]; // mid left
+						t1.points[1] = &neighbor_top->points[col - lod_mul]; // top left
+						t1.points[2] = &c->points[col + ((row)* size)]; // mid
 
-						t2.verts[0] = &c->verts[col + ((row - lod_mul)* size)]; // mid bottom
-						t2.verts[1] = &c->verts[col + ((row)* size)]; // mid
-						t2.verts[2] = &neighbor_right->verts[((row - lod_mul) * size)]; // bottom right
+						t2.points[0] = &c->points[col + ((row - lod_mul)* size)]; // mid bottom
+						t2.points[1] = &c->points[col + ((row)* size)]; // mid
+						t2.points[2] = &neighbor_right->points[((row - lod_mul) * size)]; // bottom right
 
-						t3.verts[0] = &neighbor_top->verts[col - lod_mul]; // top left
-						t3.verts[1] = &neighbor_corner->verts[0]; // top right
-						t3.verts[2] = &c->verts[col + ((row)* size)]; // mid
+						t3.points[0] = &neighbor_top->points[col - lod_mul]; // top left
+						t3.points[1] = &neighbor_corner->points[0]; // top right
+						t3.points[2] = &c->points[col + ((row)* size)]; // mid
 
-						t4.verts[0] = &c->verts[col + ((row)* size)]; // mid
-						t4.verts[1] = &neighbor_corner->verts[0]; // top right
-						t4.verts[2] = &neighbor_right->verts[((row - lod_mul) * size)]; // bottom right
+						t4.points[0] = &c->points[col + ((row)* size)]; // mid
+						t4.points[1] = &neighbor_corner->points[0]; // top right
+						t4.points[2] = &neighbor_right->points[((row - lod_mul) * size)]; // bottom right
 
 						tris.push_back(t1);
 						tris.push_back(t2);
@@ -354,13 +367,13 @@ void TerrainMesh::triangulate() {
 						Tri t1 = Tri();
 						Tri t2 = Tri();
 
-						t1.verts[0] = &c->verts[col + (row * size)]; // bottom left
-						t1.verts[1] = &neighbor_top->verts[col]; // top left
-						t1.verts[2] = &neighbor_top->verts[col + lod_mul]; // top right
+						t1.points[0] = &c->points[col + (row * size)]; // bottom left
+						t1.points[1] = &neighbor_top->points[col]; // top left
+						t1.points[2] = &neighbor_top->points[col + lod_mul]; // top right
 
-						t2.verts[0] = &neighbor_top->verts[col + lod_mul]; // top right
-						t2.verts[1] = &c->verts[col + lod_mul + (row * size)]; // bottom right
-						t2.verts[2] = &c->verts[col + (row * size)]; // bottom left
+						t2.points[0] = &neighbor_top->points[col + lod_mul]; // top right
+						t2.points[1] = &c->points[col + lod_mul + (row * size)]; // bottom right
+						t2.points[2] = &c->points[col + (row * size)]; // bottom left
 
 						tris.push_back(t1);
 						tris.push_back(t2);
@@ -371,17 +384,17 @@ void TerrainMesh::triangulate() {
 						Tri t2 = Tri();
 						Tri t3 = Tri();
 
-						t1.verts[0] = &c->verts[col + (row * size)]; // bottom left
-						t1.verts[1] = &neighbor_top->verts[col]; // top left
-						t1.verts[2] = &neighbor_top->verts[col + lod_mul/2]; // top mid
+						t1.points[0] = &c->points[col + (row * size)]; // bottom left
+						t1.points[1] = &neighbor_top->points[col]; // top left
+						t1.points[2] = &neighbor_top->points[col + lod_mul/2]; // top mid
 
-						t2.verts[0] = &neighbor_top->verts[col + lod_mul/2]; // top mid
-						t2.verts[1] = &neighbor_top->verts[col + lod_mul]; // top right
-						t2.verts[2] = &c->verts[col + lod_mul + (row * size)]; // bottom right
+						t2.points[0] = &neighbor_top->points[col + lod_mul/2]; // top mid
+						t2.points[1] = &neighbor_top->points[col + lod_mul]; // top right
+						t2.points[2] = &c->points[col + lod_mul + (row * size)]; // bottom right
 
-						t3.verts[0] = &c->verts[col + (row * size)]; // bottom left
-						t3.verts[1] = &neighbor_top->verts[col + lod_mul / 2]; // top mid
-						t3.verts[2] = &c->verts[col + lod_mul + (row * size)]; // bottom right
+						t3.points[0] = &c->points[col + (row * size)]; // bottom left
+						t3.points[1] = &neighbor_top->points[col + lod_mul / 2]; // top mid
+						t3.points[2] = &c->points[col + lod_mul + (row * size)]; // bottom right
 
 						tris.push_back(t1);
 						tris.push_back(t2);
@@ -396,17 +409,17 @@ void TerrainMesh::triangulate() {
 						Tri t2 = Tri();
 						Tri t3 = Tri();
 
-						t1.verts[0] = &c->verts[col + (row * size)]; // bottom left
-						t1.verts[1] = &neighbor_top->verts[col]; // top left
-						t1.verts[2] = &c->verts[col + lod_mul + (row * size)]; // bottom mid
+						t1.points[0] = &c->points[col + (row * size)]; // bottom left
+						t1.points[1] = &neighbor_top->points[col]; // top left
+						t1.points[2] = &c->points[col + lod_mul + (row * size)]; // bottom mid
 
-						t2.verts[0] = &c->verts[col + lod_mul + (row * size)]; // bottom mid
-						t2.verts[1] = &neighbor_top->verts[col + lod_mul*2]; // top right
-						t2.verts[2] = &c->verts[col + lod_mul*2 + (row * size)]; // bottom right
+						t2.points[0] = &c->points[col + lod_mul + (row * size)]; // bottom mid
+						t2.points[1] = &neighbor_top->points[col + lod_mul*2]; // top right
+						t2.points[2] = &c->points[col + lod_mul*2 + (row * size)]; // bottom right
 
-						t3.verts[0] = &neighbor_top->verts[col]; // top left
-						t3.verts[1] = &neighbor_top->verts[col + lod_mul * 2]; // top right
-						t3.verts[2] = &c->verts[col + lod_mul + (row * size)]; // bottom mid
+						t3.points[0] = &neighbor_top->points[col]; // top left
+						t3.points[1] = &neighbor_top->points[col + lod_mul * 2]; // top right
+						t3.points[2] = &c->points[col + lod_mul + (row * size)]; // bottom mid
 
 						tris.push_back(t1);
 						tris.push_back(t2);
@@ -423,13 +436,13 @@ void TerrainMesh::triangulate() {
 						Tri t1 = Tri();
 						Tri t2 = Tri();
 
-						t1.verts[0] = &c->verts[col + (row * size)]; // bottom left
-						t1.verts[1] = &c->verts[col + ((row + lod_mul) * size)]; // top left
-						t1.verts[2] = &neighbor_right->verts[((row + lod_mul) * size)]; // top right
+						t1.points[0] = &c->points[col + (row * size)]; // bottom left
+						t1.points[1] = &c->points[col + ((row + lod_mul) * size)]; // top left
+						t1.points[2] = &neighbor_right->points[((row + lod_mul) * size)]; // top right
 
-						t2.verts[0] = &neighbor_right->verts[((row + lod_mul) * size)]; // top right
-						t2.verts[1] = &neighbor_right->verts[(row * size)]; // bottom right
-						t2.verts[2] = &c->verts[col + (row * size)]; // bottom left
+						t2.points[0] = &neighbor_right->points[((row + lod_mul) * size)]; // top right
+						t2.points[1] = &neighbor_right->points[(row * size)]; // bottom right
+						t2.points[2] = &c->points[col + (row * size)]; // bottom left
 
 						tris.push_back(t1);
 						tris.push_back(t2);
@@ -440,17 +453,17 @@ void TerrainMesh::triangulate() {
 						Tri t2 = Tri();
 						Tri t3 = Tri();
 
-						t1.verts[0] = &c->verts[col + ((row + lod_mul)* size)]; // top left
-						t1.verts[1] = &neighbor_right->verts[((row + lod_mul) * size)]; // top right
-						t1.verts[2] = &neighbor_right->verts[((row + lod_mul/2) * size)]; // right mid
+						t1.points[0] = &c->points[col + ((row + lod_mul)* size)]; // top left
+						t1.points[1] = &neighbor_right->points[((row + lod_mul) * size)]; // top right
+						t1.points[2] = &neighbor_right->points[((row + lod_mul/2) * size)]; // right mid
 
-						t2.verts[0] = &neighbor_right->verts[((row + lod_mul / 2) * size)]; // right mid
-						t2.verts[1] = &neighbor_right->verts[(row * size)]; // bottom right
-						t2.verts[2] = &c->verts[col + (row* size)]; // bottom left
+						t2.points[0] = &neighbor_right->points[((row + lod_mul / 2) * size)]; // right mid
+						t2.points[1] = &neighbor_right->points[(row * size)]; // bottom right
+						t2.points[2] = &c->points[col + (row* size)]; // bottom left
 
-						t3.verts[0] = &c->verts[col + ((row + lod_mul)* size)]; // top left
-						t3.verts[1] = &neighbor_right->verts[((row + lod_mul / 2) * size)]; // right mid
-						t3.verts[2] = &c->verts[col + (row* size)]; // bottom left
+						t3.points[0] = &c->points[col + ((row + lod_mul)* size)]; // top left
+						t3.points[1] = &neighbor_right->points[((row + lod_mul / 2) * size)]; // right mid
+						t3.points[2] = &c->points[col + (row* size)]; // bottom left
 
 						tris.push_back(t1);
 						tris.push_back(t2);
@@ -465,17 +478,17 @@ void TerrainMesh::triangulate() {
 						Tri t2 = Tri();
 						Tri t3 = Tri();
 
-						t1.verts[0] = &c->verts[col + ((row + lod_mul*2)* size)]; // top left
-						t1.verts[1] = &neighbor_right->verts[((row + lod_mul*2) * size)]; // top right
-						t1.verts[2] = &c->verts[col + ((row + lod_mul)* size)]; // left mid
+						t1.points[0] = &c->points[col + ((row + lod_mul*2)* size)]; // top left
+						t1.points[1] = &neighbor_right->points[((row + lod_mul*2) * size)]; // top right
+						t1.points[2] = &c->points[col + ((row + lod_mul)* size)]; // left mid
 
-						t2.verts[0] = &c->verts[col + ((row + lod_mul)* size)]; // left mid
-						t2.verts[1] = &neighbor_right->verts[(row * size)]; // bottom right
-						t2.verts[2] = &c->verts[col + (row* size)]; // bottom left
+						t2.points[0] = &c->points[col + ((row + lod_mul)* size)]; // left mid
+						t2.points[1] = &neighbor_right->points[(row * size)]; // bottom right
+						t2.points[2] = &c->points[col + (row* size)]; // bottom left
 
-						t3.verts[0] = &neighbor_right->verts[((row + lod_mul*2) * size)]; // top right
-						t3.verts[1] = &neighbor_right->verts[(row * size)]; // bottom right
-						t3.verts[2] = &c->verts[col + ((row + lod_mul)* size)]; // left mid
+						t3.points[0] = &neighbor_right->points[((row + lod_mul*2) * size)]; // top right
+						t3.points[1] = &neighbor_right->points[(row * size)]; // bottom right
+						t3.points[2] = &c->points[col + ((row + lod_mul)* size)]; // left mid
 
 						tris.push_back(t1);
 						tris.push_back(t2);
@@ -483,24 +496,57 @@ void TerrainMesh::triangulate() {
 					}
 
 				} else {
-					//REGULAR FILL TRIANGLE
+					//INTERIOR PATCH CREATION
 
 				//	continue;
 
 					Tri t1 = Tri();
 					Tri t2 = Tri();
 
-					t1.verts[0] = &c->verts[col + (row * size)]; // bottom left
-					t1.verts[1] = &c->verts[col + ((row + lod_mul) * size)]; // top left
-					t1.verts[2] = &c->verts[col + lod_mul + ((row + lod_mul) * size)]; // top right
+					t1.points[0] = &c->points[col + (row * size)]; // bottom left
+					t1.points[1] = &c->points[col + ((row + lod_mul) * size)]; // top left
+					t1.points[2] = &c->points[col + lod_mul + ((row + lod_mul) * size)]; // top right
 
-					t2.verts[0] = &c->verts[col + lod_mul + ((row + lod_mul) * size)]; // top right
-					t2.verts[1] = &c->verts[col + lod_mul + (row * size)]; // bottom right
-					t2.verts[2] = &c->verts[col + (row * size)]; // bottom left
+					t2.points[0] = &c->points[col + lod_mul + ((row + lod_mul) * size)]; // top right
+					t2.points[1] = &c->points[col + lod_mul + (row * size)]; // bottom right
+					t2.points[2] = &c->points[col + (row * size)]; // bottom left
 
 					tris.push_back(t1);
 					tris.push_back(t2);
 				}
+
+				//add new patch to tris vector
+				for (int i = 0; i < 3; i++) {
+					if (patch[i] != 0) {
+						tris.push_back(*patch[i]);
+						delete patch[i];
+					}
+				}
+				
+				//compute each new tri's normal and add new tris to adjacency list
+				for (int i = prev_size; i < tris.size(); i++) {
+					glm::vec3 a = glm::vec3(
+						tris.at(i).points[1]->vert.x - tris.at(i).points[0]->vert.x,
+						tris.at(i).points[1]->vert.y - tris.at(i).points[0]->vert.y,
+						tris.at(i).points[1]->vert.z - tris.at(i).points[0]->vert.z
+						);
+
+					glm::vec3 b = glm::vec3(
+						tris.at(i).points[2]->vert.x - tris.at(i).points[0]->vert.x,
+						tris.at(i).points[2]->vert.y - tris.at(i).points[0]->vert.y,
+						tris.at(i).points[2]->vert.z - tris.at(i).points[0]->vert.z
+						);
+
+					tris.at(i).norm = -glm::normalize(glm::cross(a, b));
+
+					// add reference to self to all used points
+					for (int j = 0; j < 3; j++) {
+						int k = 0;
+						while (tris.at(i).points[j]->users[k] > 0 && k < max_poly_per_vertex) k++;
+						tris.at(i).points[j]->users[k] = i;
+					}
+				}
+				
 			}
 		}
 	}
@@ -521,33 +567,36 @@ void TerrainMesh::genBuffers() {
 		// write vertices directly from tri
 		for (int i = 0; i < 3; i++) {
 			//handle normally by local chunk index
-			vertex_buffer[offset + i * 3 + 0] = t.verts[i]->x; // x
-			vertex_buffer[offset + i * 3 + 1] = t.verts[i]->y; // y
-			vertex_buffer[offset + i * 3 + 2] = t.verts[i]->z; // z
+			vertex_buffer[offset + i * 3 + 0] = t.points[i]->vert.x; // x
+			vertex_buffer[offset + i * 3 + 1] = t.points[i]->vert.y; // y
+			vertex_buffer[offset + i * 3 + 2] = t.points[i]->vert.z; // z
 
 			//	printf("%i:\n", offset + i);
 			//	printf("%f, %f, %f\n", vertex_buffer[offset + i*3 + 0], vertex_buffer[offset + i*3 + 1], vertex_buffer[offset + i*3 + 2]);
-		}
 
-		//calculate tri normals
-		glm::vec3 a = glm::vec3(
-			vertex_buffer[offset + 3] - vertex_buffer[offset + 0], 
-			vertex_buffer[offset + 4] - vertex_buffer[offset + 1],
-			vertex_buffer[offset + 5] - vertex_buffer[offset + 2]
-		);
+			if (flag_force_facenormals) {
+				//override and use face normals
+				normal_buffer[offset + i * 3 + 0] = t.norm.x;
+				normal_buffer[offset + i * 3 + 1] = t.norm.y;
+				normal_buffer[offset + i * 3 + 2] = t.norm.z;
+			} else {
+				//calculate per-vertex normals
+				glm::vec3 norm = glm::vec3(0.0f);
+				int j = 0;
+				while(t.points[i]->users[j] > 0 && j < max_poly_per_vertex) {
+				//	printf("%i\n", t.points[i]->users[j]);
+					norm.x += tris.at(t.points[i]->users[j]).norm.x;
+					norm.y += tris.at(t.points[i]->users[j]).norm.y;
+					norm.z += tris.at(t.points[i]->users[j]).norm.z;
+					j++;
+				}
+				norm = glm::normalize(norm);
 
-		glm::vec3 b = glm::vec3(
-			vertex_buffer[offset + 6] - vertex_buffer[offset + 0],
-			vertex_buffer[offset + 7] - vertex_buffer[offset + 1],
-			vertex_buffer[offset + 8] - vertex_buffer[offset + 2]
-			);
-
-		glm::vec3 norm = -glm::normalize(glm::cross(a, b));
-
-		for (int i = 0; i < 3; i++) {
-			normal_buffer[offset + i * 3 + 0] = norm.x;
-			normal_buffer[offset + i * 3 + 1] = norm.y;
-			normal_buffer[offset + i * 3 + 2] = norm.z;
+				//assign
+				normal_buffer[offset + i * 3 + 0] = norm.x;
+				normal_buffer[offset + i * 3 + 1] = norm.y;
+				normal_buffer[offset + i * 3 + 2] = norm.z;
+			}
 		}
 
 		//increment write pointer to next triangle
