@@ -31,10 +31,9 @@ int main() {
 
 	mainRenderer = new Renderer();
 	mainRenderer->init();
-	mainRenderer->loadTestScene();
 
 	mainTerrain = new TerrainMesh();
-	mainTerrain->setSeed(8);
+	mainTerrain->setSeed(9);
 	//	 8 : plains
 	//   9 : hills
 	//1000 : big cliff

@@ -70,5 +70,9 @@
     <None Include="shader\sky_vs.glsl" />
     <None Include="shader\post_process_fs.glsl" />
     <None Include="shader\post_process_vs.glsl" />
+    <None Include="shader\shadow_fs.glsl" />
+    <None Include="shader\shadow_vs.glsl" />
+    <None Include="shader\tex_fs.glsl" />
+    <None Include="shader\tex_vs.glsl" />
   </ItemGroup>
 </Project>

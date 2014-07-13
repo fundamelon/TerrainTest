@@ -25,7 +25,6 @@ class Scene {
 public:
 	std::vector<GLuint> meshes;
 	std::vector<GLuint> shader_programs;
-	GLuint sky_shader;
 };
 
 
@@ -36,17 +35,20 @@ public:
 
 	void init();
 	void initTerrain();
+	void initShadowMap();
+	void initScreenspaceQuads();
+
+	void updateControls();
 
 	void loadSkybox();
 	void loadFramebuffer();
-	void loadTestScene();
+	GLuint loadShaderProgram(char*, char*);
 	void loadTestTri();
 	void loadPostProcessShader();
 
+
 	GLuint buildTerrainBuffers();
 	void assignTerrainBuffer(GLuint);
-
-	void renderScreenspaceQuad();
 
 	void setScene(Scene*);
 	void setTerrain(TerrainMesh*);
@@ -65,6 +67,9 @@ public:
 
 	//true while rendering.
 	bool render_lock = false;
+	bool use_caster_view = false;
+
+	bool cam_moved;
 
 private:
 	GLFWwindow* window;
@@ -75,12 +80,24 @@ private:
 	glm::vec3 sun_direction = glm::normalize(glm::vec3(0.5f, 0.0f, 1.0f));
 	float sun_inclination = 0.5f;
 
+	//size of shadow depth map
+	int shadow_size = 1024;
+
 	GLuint fb;
+	GLuint fb_depth;
+
 	GLuint fb_tex;
+	GLuint fb_tex_depth;
+
+	//textures
+	GLuint depth_texture;
 
 	//shader programs
 	GLuint post_process_shader;
 	GLuint terrain_shader;
+	GLuint sky_shader;
+	GLuint shadow_shader;
+	GLuint tex_shader;
 
 	//uniforms
 	GLuint view_mat_location;
@@ -91,8 +108,17 @@ private:
 	GLuint terrain_sun_direction;
 	GLuint sky_sun_direction;
 	GLuint fb_sampler_location;
+	GLuint shadow_map_location;
+	GLuint tex_location;
+	GLuint depth_view_location;
+	GLuint depth_proj_location;
+	GLuint depth_model_location;
+	GLuint terrain_caster_view_location;
+	GLuint terrain_caster_proj_location;
+	GLuint terrain_caster_model_location;
 
 	GLuint ss_quad_vao;
+	GLuint ss_corner_quad_vao;
 	GLuint skybox_vao;
 	GLuint terrain_vao;
 

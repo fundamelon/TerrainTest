@@ -102,10 +102,14 @@
     <None Include="shader\phong_test_vs.glsl" />
     <None Include="shader\post_process_fs.glsl" />
     <None Include="shader\post_process_vs.glsl" />
+    <None Include="shader\shadow_fs.glsl" />
+    <None Include="shader\shadow_vs.glsl" />
     <None Include="shader\sky_fs.glsl" />
     <None Include="shader\sky_vs.glsl" />
     <None Include="shader\terrain_fs.glsl" />
     <None Include="shader\terrain_vs.glsl" />
+    <None Include="shader\tex_fs.glsl" />
+    <None Include="shader\tex_vs.glsl" />
     <None Include="shader\vs.glsl" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
