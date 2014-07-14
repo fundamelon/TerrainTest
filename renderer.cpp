@@ -345,6 +345,8 @@ void Renderer::init() {
 	sky_shader = loadShaderProgram("sky_vs", "sky_fs");
 	tex_shader = loadShaderProgram("tex_vs", "tex_fs");
 	shadow_shader = loadShaderProgram("shadow_vs", "shadow_fs");
+	terrain_shader = loadShaderProgram("terrain_vs", "terrain_fs");
+	post_process_shader = loadShaderProgram("post_process_vs", "post_process_fs");
 
 	tex_location = glGetUniformLocation(tex_shader, "tex");
 
@@ -356,10 +358,11 @@ void Renderer::init() {
 }
 
 void Renderer::render() {
-
-	rotateSun(0.00001);
-
+	//set rendering flag to prevent modification of OpenGL state while drawing
 	render_lock = true;
+
+	//slowly rotate sun
+	rotateSun(0.00001);
 
 	elapsed_seconds = glfwGetTime() - frame_time;
 	frame_time = glfwGetTime();
@@ -367,10 +370,12 @@ void Renderer::render() {
 	updateFPS(window);
 
 
+	//------------- matrices -------------
+
 	// create a view matrix for the shadow caster
-	glm::vec3 light_pos = sun_direction;
-	glm::vec3 up_dir(0.0f, 0.0f, 1.0f);
-	glm::mat4 caster_view_mat = glm::lookAt(light_pos, glm::vec3(0.0f), up_dir);
+	glm::mat4 caster_view_mat = glm::lookAt(sun_direction, glm::vec3(0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+
+	float shadow_map_scale = 20.0f;
 
 	// create a projection matrix for the shadow caster
 	float near = -70.0f;
@@ -379,28 +384,55 @@ void Renderer::render() {
 	float aspect = 1.0f;
 
 	//	glm::mat4 caster_proj_mat = glm::perspective(fov, aspect, near, far);
-	glm::mat4 caster_proj_mat = glm::ortho(-90.0f, 90.0f, -50.0f, 50.0f, near, far);
+	glm::mat4 caster_proj_mat = glm::ortho(-90.0f * shadow_map_scale, 90.0f * shadow_map_scale, -50.0f * shadow_map_scale, 50.0f * shadow_map_scale, near * shadow_map_scale, far * shadow_map_scale);
 
-	glm::mat4 caster_model_mat = glm::translate(glm::mat4(1.0f), glm::vec3(-terrain->getChunkPos().x, -terrain->getChunkPos().y, 0));
+	glm::mat4 caster_model_mat = glm::translate(glm::mat4(1.0f), glm::vec3(-terrain->getChunkPos().x * terrain->getChunkSpacing(), -terrain->getChunkPos().y * terrain->getChunkSpacing(), 0));
+
+	//update matrices modified by camera
+	model_mat = glm::translate(glm::mat4(1.0f), glm::vec3(-cam.pos[0], -cam.pos[1], -cam.pos[2]));
+	view_mat = glm::mat4();
+	view_mat = glm::rotate(view_mat, -cam.rot.x, glm::vec3(1.0f, 0.0f, 0.0f));
+	view_mat = glm::rotate(view_mat, -cam.rot.y, glm::vec3(0.0f, 1.0f, 0.0f));
+	view_mat = glm::rotate(view_mat, -90.0f, glm::vec3(1.0f, 0.0f, 0.0f));
+
+	if (use_caster_view) view_mat = caster_view_mat;
+
+
+	//------------- uniforms -------------
+
+	//sky uniforms
+	glUseProgram(sky_shader);
+	glUniformMatrix4fv(sky_view_mat, 1, GL_FALSE, glm::value_ptr(view_mat));
+	glUniform3fv(sky_sun_direction, 1, glm::value_ptr(sun_direction));
+
+	//terrain uniforms
+	glUseProgram(terrain_shader);
+	glUniform3fv(terrain_sun_direction, 1, glm::value_ptr(sun_direction));
+
+	glUniformMatrix4fv(view_mat_location, 1, GL_FALSE, glm::value_ptr(view_mat));
+	glUniformMatrix4fv(model_mat_location, 1, GL_FALSE, glm::value_ptr(model_mat));
+
+	glUniformMatrix4fv(terrain_caster_view_location, 1, GL_FALSE, glm::value_ptr(caster_view_mat));
+	glUniformMatrix4fv(terrain_caster_proj_location, 1, GL_FALSE, glm::value_ptr(caster_proj_mat));
+	glUniformMatrix4fv(terrain_caster_model_location, 1, GL_FALSE, glm::value_ptr(caster_model_mat));
+
+	glUniform1f(terrain_time_location, static_cast<float>(glfwGetTime()));
+
+	//------------- shadowmaps -------------
 
 	// bind framebuffer that renders to texture instead of screen
 	glBindFramebuffer(GL_FRAMEBUFFER, fb_depth);
 
-	// set the viewport to the size of the shadow map
+	// set viewport to size of shadowmap
 	glViewport(0, 0, shadow_size, shadow_size);
 
-	// clear the shadow map to black (or white)
-	glClearColor(0.0, 0.0, 0.0, 1.0);
-
-	// no need to clear the colour buffer
+	// clear shadowmap to white
+	glClearColor(1.0, 1.0, 1.0, 1.0);
 	glClear(GL_DEPTH_BUFFER_BIT);
 
-	// bind out shadow-casting shader from the previous section
 	glUseProgram(shadow_shader);
-	// send in the view and projection matrices from the light
 	glUniformMatrix4fv(depth_view_location, 1, GL_FALSE, glm::value_ptr(caster_view_mat));
 	glUniformMatrix4fv(depth_proj_location, 1, GL_FALSE, glm::value_ptr(caster_proj_mat));
-	// model matrix does nothing for the monkey - make it an identity matrix
 	glUniformMatrix4fv(depth_model_location, 1, GL_FALSE, glm::value_ptr(caster_model_mat));
 
 	glDisable(GL_CULL_FACE);
@@ -414,19 +446,17 @@ void Renderer::render() {
 	glEnable(GL_CULL_FACE);
 	//	glCullFace(GL_BACK);
 
-	// bind the default framebuffer again
-	glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
 	glViewport(0, 0, g_gl_width, g_gl_height);
 
 	glBindFramebuffer(GL_FRAMEBUFFER, fb);
-	//clear screen
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	//select wireframe if flag is set
 	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
-	//render sky
+
+	//------------- sky -------------
+
 	glDepthMask(GL_FALSE);
 	glDisable(GL_CULL_FACE);
 	glUseProgram(sky_shader);
@@ -435,39 +465,60 @@ void Renderer::render() {
 	glDepthMask(GL_TRUE);
 	glEnable(GL_CULL_FACE);
 
-	//terrain render settings
-	glUseProgram(terrain_shader);
-	glBindVertexArray(terrain_vao);
-
 	//send shadow map uniform
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, fb_tex_depth);
 	glUniform1i(shadow_map_location, 0);
 
+
+	//------------- terrain -------------
+
+	glUseProgram(terrain_shader);
+	glBindVertexArray(terrain_vao);
+
+	//flag to not use water shading
+	glUniform1i(terrain_waterflag_location, 0);
+
 	glPolygonMode(GL_FRONT_AND_BACK, wireframe ? GL_LINE : GL_FILL);
 
-	//draw terrain mesh
 	glDrawArrays(GL_TRIANGLES, 0, terrain->getPolyCount() * 9);
+
+
+	//------------- water -------------
+
+	glUseProgram(terrain_shader);
+	glBindVertexArray(water_vao);
+
+	//flag to use water shading
+	glUniform1i(terrain_waterflag_location, 1);
+
+	//alpha blending
+	glEnable(GL_BLEND); 
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+	glDrawArrays(GL_TRIANGLES, 0, terrain->getWaterChunkCount() * 18);
 
 	//reset polygon mode
 	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+	glDisable(GL_BLEND);
 
-	// bind default framebuffer
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
-	// clear the framebuffer's colour and depth buffers
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+
+	//------------- post processing -------------
+	
 	/*
 	//render mini quad
 	glUseProgram(tex_shader);
 	// bind depth texture into slot 0
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, fb_tex_depth);
-	// bind quad VAO and draw all 6 points
 	glBindVertexArray(ss_corner_quad_vao);
 	glDrawArrays(GL_TRIANGLES, 0, 6);
 	*/
 
-	//send fbo information to shader
+	//send fb texture to shader
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, fb_tex);
 	glUseProgram(post_process_shader);
@@ -486,50 +537,12 @@ void Renderer::render() {
 
 	updateControls();
 
-	//update view matrix
-	model_mat = glm::translate(glm::mat4(1.0f), glm::vec3(-cam.pos[0], -cam.pos[1], -cam.pos[2]));
-	rot_mat = glm::mat4();
-	rot_mat = glm::rotate(rot_mat, -cam.rot.x, glm::vec3(1.0f, 0.0f, 0.0f));
-	rot_mat = glm::rotate(rot_mat, -cam.rot.y, glm::vec3(0.0f, 1.0f, 0.0f));
-	rot_mat = glm::rotate(rot_mat, -90.0f, glm::vec3(1.0f, 0.0f, 0.0f));
-
-	view_mat = rot_mat;
-
-	if (use_caster_view) view_mat = caster_view_mat;
-
-	//send before translation
-	glUseProgram(sky_shader);
-	glUniformMatrix4fv(sky_view_mat, 1, GL_FALSE, glm::value_ptr(view_mat));
-	glUniform3fv(sky_sun_direction, 1, glm::value_ptr(sun_direction));
-
-//	view_mat *= model_mat;
-
-	glUseProgram(terrain_shader);
-
-	if (use_caster_view)  {
-		glUniformMatrix4fv(view_mat_location, 1, GL_FALSE, glm::value_ptr(caster_view_mat * caster_model_mat));
-		glUniformMatrix4fv(proj_mat_location, 1, GL_FALSE, glm::value_ptr(caster_proj_mat));
-	}
-	else
-		glUniformMatrix4fv(view_mat_location, 1, GL_FALSE, glm::value_ptr(view_mat));
-
-	glUniformMatrix4fv(model_mat_location, 1, GL_FALSE, glm::value_ptr(model_mat));
-
-	glUniform3fv(terrain_sun_direction, 1, glm::value_ptr(sun_direction));
-
-	glUniformMatrix4fv(terrain_caster_view_location, 1, GL_FALSE, glm::value_ptr(caster_view_mat));
-	glUniformMatrix4fv(terrain_caster_proj_location, 1, GL_FALSE, glm::value_ptr(caster_proj_mat));
-	glUniformMatrix4fv(terrain_caster_model_location, 1, GL_FALSE, glm::value_ptr(caster_model_mat));
-
-
+	//free render lock
 	render_lock = false;
-
-//	printf("%f\n", cam.pos.z);
 }
 
 void  Renderer::initTerrain() {
 	//shaders
-	terrain_shader = loadShaderProgram("terrain_vs", "terrain_fs");
 
 	model_mat_location = glGetUniformLocation(terrain_shader, "model_mat");
 	view_mat_location = glGetUniformLocation(terrain_shader, "view_mat");
@@ -538,6 +551,10 @@ void  Renderer::initTerrain() {
 	terrain_caster_view_location = glGetUniformLocation(terrain_shader, "caster_view");
 	terrain_caster_proj_location = glGetUniformLocation(terrain_shader, "caster_proj");
 	terrain_caster_model_location = glGetUniformLocation(terrain_shader, "caster_model");
+	terrain_time_location = glGetUniformLocation(terrain_shader, "time");
+
+	//set waterflag
+	terrain_waterflag_location = glGetUniformLocation(terrain_shader, "water");
 }
 
 void Renderer::initShadowMap() {
@@ -758,22 +775,19 @@ void Renderer::updateControls() {
 	}
 }
 
-GLuint Renderer::buildTerrainBuffers() {
+void Renderer::buildTerrainBuffers() {
 //	printf("[REN] Building terrain buffers. \n\tTerrain polycount: %i\n", terrain->getPolyCount());
-	/*
-	for (int i = 0; i < terrain->getPolyCount() * 9; i++) {
-				printf("%f\n", terrain->getVertexBuffer()[i]);
-	}
-	*/
+
+	//terrain buffers
 	GLuint points_vbo = 0;
 	glGenBuffers(1, &points_vbo);
 	glBindBuffer(GL_ARRAY_BUFFER, points_vbo);
-	glBufferData(GL_ARRAY_BUFFER, terrain->getPolyCount() * 9 * sizeof(float), terrain->getVertexBuffer(), GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, terrain->getPolyCount() * 9 * sizeof(float), terrain->getTerrainVertexBuffer(), GL_STATIC_DRAW);
 
 	GLuint normals_vbo = 0;
 	glGenBuffers(1, &normals_vbo);
 	glBindBuffer(GL_ARRAY_BUFFER, normals_vbo);
-	glBufferData(GL_ARRAY_BUFFER, terrain->getPolyCount() * 9 * sizeof(float), terrain->getNormalBuffer(), GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, terrain->getPolyCount() * 9 * sizeof(float), terrain->getTerrainNormalBuffer(), GL_STATIC_DRAW);
 
 	GLuint vao = 0;
 	glGenVertexArrays(1, &vao);
@@ -787,11 +801,32 @@ GLuint Renderer::buildTerrainBuffers() {
 	glEnableVertexAttribArray(0);
 	glEnableVertexAttribArray(1);
 
-	return vao;
-}
+	terrain_vao = vao;
 
-void Renderer::assignTerrainBuffer(GLuint new_vao) {
-	terrain_vao = new_vao;
+	//water buffers
+	points_vbo = 0;
+	glGenBuffers(1, &points_vbo);
+	glBindBuffer(GL_ARRAY_BUFFER, points_vbo);
+	glBufferData(GL_ARRAY_BUFFER, terrain->getWaterChunkCount() * 18 * sizeof(float), terrain->getWaterVertexBuffer(), GL_STATIC_DRAW);
+
+	normals_vbo = 0;
+	glGenBuffers(1, &normals_vbo);
+	glBindBuffer(GL_ARRAY_BUFFER, normals_vbo);
+	glBufferData(GL_ARRAY_BUFFER, terrain->getWaterChunkCount() * 18 * sizeof(float), terrain->getWaterNormalBuffer(), GL_STATIC_DRAW);
+
+	vao = 0;
+	glGenVertexArrays(1, &vao);
+	glBindVertexArray(vao);
+	glEnableVertexAttribArray(0);
+	glBindBuffer(GL_ARRAY_BUFFER, points_vbo);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, NULL);
+	glBindBuffer(GL_ARRAY_BUFFER, normals_vbo);
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, NULL);
+
+	glEnableVertexAttribArray(0);
+	glEnableVertexAttribArray(1);
+
+	water_vao = vao;
 }
 
 GLuint Renderer::loadShaderProgram(char* vs_name, char* fs_name) {
@@ -818,25 +853,16 @@ GLuint Renderer::loadShaderProgram(char* vs_name, char* fs_name) {
 
 void Renderer::initCamera() {
 
-	cam.speed = 2.0f;
+	cam.speed = 20.0f;
 	cam.yaw_speed = 40.0f;
 
 	cam.pos = { 0.0f, 0.0f, 2.0f };
 	cam.rot = { 0.0f, 0.0f, 0.0f };
 	cam.rot.y = 0.0f;
 
-	//matrices
-
-	glm::mat4 T = glm::translate(glm::mat4(1.0f), glm::vec3(-cam.pos[0], -cam.pos[1], -cam.pos[2]));
-	rot_mat = glm::mat4();
-	rot_mat = glm::rotate(rot_mat, -cam.rot.x, glm::vec3(1.0f, 0.0f, 0.0f));
-	rot_mat = glm::rotate(rot_mat, -cam.rot.y, glm::vec3(0.0f, 1.0f, 0.0f));
-	rot_mat = glm::rotate(rot_mat, -90.0f, glm::vec3(1.0f, 0.0f, 0.0f));
-	glm::mat4 view_mat = rot_mat * T;
-
 	//input variables
-	float near = 0.0001f; //clipping plane
-	float far = 100.0f; //clipping plane
+	float near = 0.1f; //clipping plane
+	float far = 1000.0f; //clipping plane
 	float fov = 67.0f * ONE_DEG_IN_RAD; //67 radians
 	float aspect = (float)g_gl_width / (float)g_gl_height;
 	//matrix components
@@ -862,30 +888,18 @@ void Renderer::initCamera() {
 
 	// sky uniforms
 	sky_view_mat = glGetUniformLocation(sky_shader, "view_mat");
-	glUseProgram(sky_shader);
-	glUniformMatrix4fv(sky_view_mat, 1, GL_FALSE, glm::value_ptr(view_mat));
-
 	sky_proj_mat = glGetUniformLocation(sky_shader, "proj_mat");
+	sky_sun_direction = glGetUniformLocation(sky_shader, "sun_direction");
+
 	glUseProgram(sky_shader);
 	glUniformMatrix4fv(sky_proj_mat, 1, GL_FALSE, proj_mat);
-
-	sky_sun_direction = glGetUniformLocation(sky_shader, "sun_direction");
-	glUseProgram(sky_shader);
-	glUniform3fv(sky_sun_direction, 1, glm::value_ptr(sun_direction));
 
 
 	// terrain uniforms
 	glUseProgram(terrain_shader);
 	glUniformMatrix4fv(proj_mat_location, 1, GL_FALSE, proj_mat);
 
-	glUseProgram(terrain_shader);
-	glUniformMatrix4fv(view_mat_location, 1, GL_FALSE, glm::value_ptr(view_mat));
-
-	glUseProgram(terrain_shader);
-	glUniformMatrix4fv(model_mat_location, 1, GL_FALSE, model_mat);
-
-	glUseProgram(terrain_shader);
-	glUniform3fv(terrain_sun_direction, 1, glm::value_ptr(sun_direction));
+	glUseProgram(0);
 }
 
 void Renderer::loadSkybox() {
@@ -997,8 +1011,6 @@ void Renderer::loadFramebuffer() {
 }
 
 void Renderer::loadPostProcessShader() {
-
-	post_process_shader = loadShaderProgram("post_process_vs", "post_process_fs");
 
 	// uniforms
 	fb_sampler_location = glGetUniformLocation(post_process_shader, "tex"); 

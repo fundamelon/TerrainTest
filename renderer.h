@@ -47,8 +47,7 @@ public:
 	void loadPostProcessShader();
 
 
-	GLuint buildTerrainBuffers();
-	void assignTerrainBuffer(GLuint);
+	void buildTerrainBuffers();
 
 	void setScene(Scene*);
 	void setTerrain(TerrainMesh*);
@@ -75,7 +74,6 @@ private:
 	GLFWwindow* window;
 	glm::mat4 view_mat;
 	glm::mat4 model_mat;
-	glm::mat4 rot_mat;
 
 	glm::vec3 sun_direction = glm::normalize(glm::vec3(0.5f, 0.0f, 1.0f));
 	float sun_inclination = 0.5f;
@@ -98,6 +96,7 @@ private:
 	GLuint sky_shader;
 	GLuint shadow_shader;
 	GLuint tex_shader;
+	GLuint water_shader;
 
 	//uniforms
 	GLuint view_mat_location;
@@ -116,11 +115,14 @@ private:
 	GLuint terrain_caster_view_location;
 	GLuint terrain_caster_proj_location;
 	GLuint terrain_caster_model_location;
+	GLuint terrain_waterflag_location;
+	GLuint terrain_time_location;
 
 	GLuint ss_quad_vao;
 	GLuint ss_corner_quad_vao;
 	GLuint skybox_vao;
 	GLuint terrain_vao;
+	GLuint water_vao;
 
 	Scene* cur_scene;
 	TerrainMesh* terrain;

@@ -4,38 +4,55 @@
 #include <glm/glm.hpp>
 #include <noise/noise.h>
 
+//constant terrain parameters
 #define GRID_SIZE 32
-#define GRID_SPACING 0.1f
+#define GRID_SPACING 1.0f
+#define MAX_POLY_PER_VERTEX 16
 
-//Element of terrain.  Only data here.
+//preliminary declaration
 struct Tri;
 
-const int max_poly_per_vertex = 16;
-
 struct Point {
+	//vertex
 	glm::vec3 vert;
+
+	//normal
 	glm::vec3 norm;
-	int users[max_poly_per_vertex];
+
+	//indices of tris that use this point
+	int users[MAX_POLY_PER_VERTEX];
 };
 
-struct Chunk {
-	int lod;
-	bool deleting = false;
-	glm::vec2 origin;
-	glm::ivec2 addr;
-	Point* points;
-};
-
-//Index triangle.  Used in export
+//data structure for a single triangle
 struct Tri {
 	//index data
 	Point* points[3];
 	glm::vec3 norm;
 };
 
-//Float triangle, used to directly give values
+//value triangle, use as override
 struct Trif {
 	glm::vec3 verts[3];
+};
+
+struct Chunk {
+	//level of detail
+	int lod;
+
+	//flag indicating if chunk is to be deleted
+	bool deleting = false;
+
+	//flag indicating if chunk should contain water
+	bool water = false;
+
+	//position of bottom left corner
+	glm::vec2 origin;
+
+	//position in chunk coordinates
+	glm::ivec2 addr;
+
+	//chunk data
+	Point* points;
 };
 
 //Main terrain class.  Handles all operations and calculates output polygons/mesh.
@@ -51,17 +68,23 @@ public:
 
 	void triangulate();
 
-	void genBuffers();
+	void genTerrainBuffers();
+	void genWaterBuffers();
 
 	void setSeed(int);
 
 	void clearData();
 	void clearBuffers();
 
-	float* getVertexBuffer();
-	float* getNormalBuffer();
+	float* getTerrainVertexBuffer();
+	float* getTerrainNormalBuffer();
+	float* getWaterVertexBuffer();
+	float* getWaterNormalBuffer();
+
 	unsigned int getLOD(Chunk*);
 	unsigned int getPolyCount();
+	unsigned int getWaterChunkCount();
+	unsigned int getChunkCount();
 	float getChunkSpacing();
 	float getTerrainDisplacement(glm::vec2);
 	Chunk* getChunkAt(int, int);
@@ -80,7 +103,10 @@ public:
 	bool flag_force_update = false;
 	bool flag_force_facenormals = false;
 
-	int chunk_dist = 20;
+	int chunk_dist = 12;
+
+	float terrain_disp = 1.0f;
+	float water_height = 0.0f;
 
 private:
 	std::vector<Chunk*> chunks;
@@ -103,6 +129,9 @@ private:
 	//stores amount of polygons during re-generation procedures.
 	unsigned int polycount = 0;
 
+	//amount of chunks that will have water.
+	unsigned int water_chunks;
+
 	noise::module::Billow baseFlatTerrain;
 	noise::module::ScaleBias flatTerrain;
 
@@ -119,6 +148,10 @@ private:
 	noise::module::Perlin terrainTypeMountain;
 	noise::module::Perlin terrainTypeFoothill;
 
+	noise::module::Perlin terrainLargeVariation;
+	noise::module::ScaleBias terrainLargeVariationScaler;
+	noise::module::Add terrainLargeVariationAdder;
+
 	noise::module::Select hillSelector;
 	noise::module::Add mountainAdder;
 	noise::module::Select mountainSelector;
@@ -127,6 +160,8 @@ private:
 
 	noise::module::Perlin terrainSwirl;
 
-	float* vertex_buffer;
-	float* normal_buffer;
+	float* terrain_vertex_buffer;
+	float* terrain_normal_buffer;
+	float* water_vertex_buffer;
+	float* water_normal_buffer;
 };

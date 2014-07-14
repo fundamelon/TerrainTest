@@ -49,8 +49,15 @@ TerrainMesh::TerrainMesh() {
 	mountainSelector.SetBounds(-1.0, -0.4f);
 	mountainSelector.SetEdgeFalloff(0.25f);
 
+	//large sweeping terrain height variation
+	terrainLargeVariation.SetFrequency(0.05);
+	terrainLargeVariationScaler.SetSourceModule(0, terrainLargeVariation);
+	terrainLargeVariationScaler.SetScale(2.0);
+	terrainLargeVariationAdder.SetSourceModule(0, mountainSelector);
+	terrainLargeVariationAdder.SetSourceModule(1, terrainLargeVariationScaler);
+
 	//final
-	finalTerrain.SetSourceModule(0, mountainSelector);
+	finalTerrain.SetSourceModule(0, terrainLargeVariationAdder);
 	finalTerrain.SetFrequency(1.0);
 	finalTerrain.SetPower(0);
 }
@@ -76,7 +83,8 @@ void TerrainMesh::generateChunk(int x, int y, int lod) {
 
 	unsigned int vert_i = 0; // vertex index
 
-	int scale = 5;
+	float horizontal_scale = 0.5f;
+	float vertical_scale = 10.0f;
 	int lod_mul = pow(2, c->lod);
 
 	c->points = new Point[GRID_SIZE * GRID_SIZE];
@@ -90,11 +98,12 @@ void TerrainMesh::generateChunk(int x, int y, int lod) {
 			if (row % lod_mul != 0 || col % lod_mul != 0) {
 				c->points[vert_i].vert.z = 100;
 			} else {
-				float x = c->points[vert_i].vert.x * scale;
-				float y = c->points[vert_i].vert.y * scale;
-				c->points[vert_i].vert.z = getTerrainDisplacement(glm::vec2(x, y)); // z
+				float x = c->points[vert_i].vert.x * horizontal_scale;
+				float y = c->points[vert_i].vert.y * horizontal_scale;
+				c->points[vert_i].vert.z = (terrain_disp + getTerrainDisplacement(glm::vec2(x, y)))*vertical_scale; // z
+				if (c->points[vert_i].vert.z <= water_height) c->water = true;
 
-				for (int i = 0; i < max_poly_per_vertex; i++)
+				for (int i = 0; i < MAX_POLY_PER_VERTEX; i++)
 					c->points[vert_i].users[i] = -1;
 			}
 			//increment to next vertex
@@ -130,6 +139,18 @@ void TerrainMesh::updateChunks() {
 			c->deleting = true;
 			deleting_count++;
 			flag_updated = true;
+		} else {
+			//check all neighbor chunks and set water accordingly
+			std::vector<Chunk*> set_to_water;
+			for (int x = -1; x <= 1; x++)
+				for (int y = -1; y <= 1; y++)
+					if ((x!=0 || y!=0) && getChunkAt(c->addr.x + x, c->addr.y + y)!=NULL && getChunkAt(c->addr.x + x, c->addr.y + y)->water)
+						set_to_water.push_back(c);
+	
+			for (int i = 0; i < set_to_water.size(); i++)
+				set_to_water.at(i)->water = true;
+
+			if (set_to_water.size() != 0) flag_updated = true;
 		}
 	}
 
@@ -542,7 +563,7 @@ void TerrainMesh::triangulate() {
 					// add reference to self to all used points
 					for (int j = 0; j < 3; j++) {
 						int k = 0;
-						while (tris.at(i).points[j]->users[k] > 0 && k < max_poly_per_vertex) k++;
+						while (tris.at(i).points[j]->users[k] > 0 && k < MAX_POLY_PER_VERTEX) k++;
 						tris.at(i).points[j]->users[k] = i;
 					}
 				}
@@ -552,11 +573,11 @@ void TerrainMesh::triangulate() {
 	}
 }
 
-void TerrainMesh::genBuffers() {
-	delete[] vertex_buffer;
-	delete[] normal_buffer;
-	vertex_buffer = new float[tris.size() * 9];
-	normal_buffer = new float[tris.size() * 9];
+void TerrainMesh::genTerrainBuffers() {
+	delete[] terrain_vertex_buffer;
+	delete[] terrain_normal_buffer;
+	terrain_vertex_buffer = new float[tris.size() * 9];
+	terrain_normal_buffer = new float[tris.size() * 9];
 	unsigned int offset = 0;
 	unsigned int limit = GRID_SIZE * GRID_SIZE;
 
@@ -567,23 +588,23 @@ void TerrainMesh::genBuffers() {
 		// write vertices directly from tri
 		for (int i = 0; i < 3; i++) {
 			//handle normally by local chunk index
-			vertex_buffer[offset + i * 3 + 0] = t.points[i]->vert.x; // x
-			vertex_buffer[offset + i * 3 + 1] = t.points[i]->vert.y; // y
-			vertex_buffer[offset + i * 3 + 2] = t.points[i]->vert.z; // z
+			terrain_vertex_buffer[offset + i * 3 + 0] = t.points[i]->vert.x; // x
+			terrain_vertex_buffer[offset + i * 3 + 1] = t.points[i]->vert.y; // y
+			terrain_vertex_buffer[offset + i * 3 + 2] = t.points[i]->vert.z; // z
 
 			//	printf("%i:\n", offset + i);
 			//	printf("%f, %f, %f\n", vertex_buffer[offset + i*3 + 0], vertex_buffer[offset + i*3 + 1], vertex_buffer[offset + i*3 + 2]);
 
 			if (flag_force_facenormals) {
 				//override and use face normals
-				normal_buffer[offset + i * 3 + 0] = t.norm.x;
-				normal_buffer[offset + i * 3 + 1] = t.norm.y;
-				normal_buffer[offset + i * 3 + 2] = t.norm.z;
+				terrain_normal_buffer[offset + i * 3 + 0] = t.norm.x;
+				terrain_normal_buffer[offset + i * 3 + 1] = t.norm.y;
+				terrain_normal_buffer[offset + i * 3 + 2] = t.norm.z;
 			} else {
 				//calculate per-vertex normals
 				glm::vec3 norm = glm::vec3(0.0f);
 				int j = 0;
-				while(t.points[i]->users[j] > 0 && j < max_poly_per_vertex) {
+				while (t.points[i]->users[j] > 0 && j < MAX_POLY_PER_VERTEX) {
 				//	printf("%i\n", t.points[i]->users[j]);
 					norm.x += tris.at(t.points[i]->users[j]).norm.x;
 					norm.y += tris.at(t.points[i]->users[j]).norm.y;
@@ -593,9 +614,9 @@ void TerrainMesh::genBuffers() {
 				norm = glm::normalize(norm);
 
 				//assign
-				normal_buffer[offset + i * 3 + 0] = norm.x;
-				normal_buffer[offset + i * 3 + 1] = norm.y;
-				normal_buffer[offset + i * 3 + 2] = norm.z;
+				terrain_normal_buffer[offset + i * 3 + 0] = norm.x;
+				terrain_normal_buffer[offset + i * 3 + 1] = norm.y;
+				terrain_normal_buffer[offset + i * 3 + 2] = norm.z;
 			}
 		}
 
@@ -604,22 +625,91 @@ void TerrainMesh::genBuffers() {
 	}
 }
 
+void TerrainMesh::genWaterBuffers() {
+	delete[] water_vertex_buffer;
+	delete[] water_normal_buffer;
+
+	water_chunks = 0;
+
+	for (unsigned int i = 0; i < chunks.size(); i++) {
+		if (chunks.at(i)->water) water_chunks++;
+	}
+
+	water_vertex_buffer = new float[18 * water_chunks];
+	water_normal_buffer = new float[18 * water_chunks];
+
+	//chunk pointer
+	unsigned int i = 0;
+
+	//loop counter
+	unsigned int j = 0;
+
+	while (i < chunks.size()) {
+		if (!chunks.at(i)->water) {
+			i++;
+			continue;
+		}
+
+		glm::vec3 bottom_left = glm::vec3(chunks.at(i)->origin, water_height);
+		glm::vec3 top_left = bottom_left + glm::vec3(0.0f, getChunkSpacing(), 0.0f);
+		glm::vec3 top_right = bottom_left + glm::vec3(getChunkSpacing(), getChunkSpacing(), 0.0f);
+		glm::vec3 bottom_right = bottom_left + glm::vec3(getChunkSpacing(), 0.0f, 0.0f);
+
+		water_vertex_buffer[j * 18 +  0] = bottom_left.x;
+		water_vertex_buffer[j * 18 +  1] = bottom_left.y;
+		water_vertex_buffer[j * 18 +  2] = bottom_left.z;
+							
+		water_vertex_buffer[j * 18 +  3] = top_left.x;
+		water_vertex_buffer[j * 18 +  4] = top_left.y;
+		water_vertex_buffer[j * 18 +  5] = top_left.z;
+								
+		water_vertex_buffer[j * 18 +  6] = top_right.x;
+		water_vertex_buffer[j * 18 +  7] = top_right.y;
+		water_vertex_buffer[j * 18 +  8] = top_right.z;
+								
+		water_vertex_buffer[j * 18 +  9] = top_right.x;
+		water_vertex_buffer[j * 18 + 10] = top_right.y;
+		water_vertex_buffer[j * 18 + 11] = top_right.z;
+								
+		water_vertex_buffer[j * 18 + 12] = bottom_right.x;
+		water_vertex_buffer[j * 18 + 13] = bottom_right.y;
+		water_vertex_buffer[j * 18 + 14] = bottom_right.z;
+								
+		water_vertex_buffer[j * 18 + 15] = bottom_left.x;
+		water_vertex_buffer[j * 18 + 16] = bottom_left.y;
+		water_vertex_buffer[j * 18 + 17] = bottom_left.z;
+
+		for (int k = j * 18; k < (j+1) * 18; k += 3) {
+			water_normal_buffer[k + 0] = 0.0f;
+			water_normal_buffer[k + 1] = 0.0f;
+			water_normal_buffer[k + 2] = 1.0f;
+		}
+
+		i++;
+		j++;
+	}
+}
+
 void TerrainMesh::setSeed(int seed) {
 	this->seed = seed;
 
 	//set seed of all noise modules
 	baseFlatTerrain.SetSeed(seed);
-	baseMountainTerrain.SetSeed(seed);
-	baseFoothillTerrain.SetSeed(seed);
+	baseMountainTerrain.SetSeed(seed+1);
+	baseFoothillTerrain.SetSeed(seed+2);
 
-	hillTerrain.SetSeed(seed);
-	hillTurbulence.SetSeed(seed);
+	hillTerrain.SetSeed(seed+3);
+	hillTurbulence.SetSeed(seed+4);
 
-	terrainTypeHill.SetSeed(seed);
-	terrainTypeMountain.SetSeed(seed+1);
-	terrainTypeFoothill.SetSeed(seed+1);
+	terrainTypeHill.SetSeed(seed+5);
+	terrainTypeMountain.SetSeed(seed+6);
+	terrainTypeFoothill.SetSeed(seed+7);
 
-	finalTerrain.SetSeed(seed);
+	terrainLargeVariation.SetSeed(seed + 8);
+
+	terrainSwirl.SetSeed(seed+9);
+
+	finalTerrain.SetSeed(seed+10);
 }
 
 bool TerrainMesh::containsChunkAt(int xi, int yi) {
@@ -645,6 +735,14 @@ unsigned int TerrainMesh::getPolyCount() {
 	return polycount;
 }
 
+unsigned int TerrainMesh::getChunkCount() {
+	return chunks.size();
+}
+
+unsigned int TerrainMesh::getWaterChunkCount() {
+	return water_chunks;
+}
+
 unsigned int TerrainMesh::getLOD(Chunk* c) {
 	int dx = abs(chunkPos.x - c->addr.x) / dist_div - 1;
 	int dy = abs(chunkPos.y - c->addr.y) / dist_div - 1;
@@ -657,8 +755,10 @@ unsigned int TerrainMesh::getLOD(Chunk* c) {
 
 float TerrainMesh::getChunkSpacing() { return GRID_SIZE * GRID_SPACING; }
 
-float* TerrainMesh::getVertexBuffer() {	return vertex_buffer; }
-float* TerrainMesh::getNormalBuffer() { return normal_buffer; }
+float* TerrainMesh::getTerrainVertexBuffer() { return terrain_vertex_buffer; }
+float* TerrainMesh::getTerrainNormalBuffer() { return terrain_normal_buffer; }
+float* TerrainMesh::getWaterVertexBuffer() { return water_vertex_buffer; }
+float* TerrainMesh::getWaterNormalBuffer() { return water_normal_buffer; }
 
 glm::ivec2 TerrainMesh::getChunkPos() {
 	return chunkPos;

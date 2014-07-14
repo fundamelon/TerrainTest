@@ -15,7 +15,8 @@ void updateTerrainBuffers(Renderer* r, TerrainMesh* t) {
 	t->updateChunks();
 	t->triangulate();
 
-	t->genBuffers();
+	t->genTerrainBuffers();
+	t->genWaterBuffers();
 
 	t->flag_updating = false;
 
@@ -33,7 +34,7 @@ int main() {
 	mainRenderer->init();
 
 	mainTerrain = new TerrainMesh();
-	mainTerrain->setSeed(9);
+	mainTerrain->setSeed(12);
 	//	 8 : plains
 	//   9 : hills
 	//1000 : big cliff
@@ -61,7 +62,7 @@ int main() {
 
 		//regenerate and assign terrain VAOs
 		if (mainTerrain->flag_bufready) {
-			mainRenderer->assignTerrainBuffer(mainRenderer->buildTerrainBuffers());
+			mainRenderer->buildTerrainBuffers();
 			mainTerrain->flag_bufready = false;
 		}
 
