@@ -326,6 +326,10 @@ void Renderer::init() {
 	printf("Renderer: %s\n", renderer);
 	printf("OpenGL version supported %s\n", version);
 
+	int max_patch_vertices = 0;
+	glGetIntegerv(GL_MAX_PATCH_VERTICES, &max_patch_vertices);
+	printf("Max supported patch vertices %i\n", max_patch_vertices);
+
 	//tell GL to only draw onto pixel if shape is closest
 	glEnable(GL_DEPTH_TEST); //enable depth-testing
 	glDepthFunc(GL_LESS); //depth-testing interprets smaller value as closer
@@ -345,8 +349,12 @@ void Renderer::init() {
 	sky_shader = loadShaderProgram("sky_vs", "sky_fs");
 	tex_shader = loadShaderProgram("tex_vs", "tex_fs");
 	shadow_shader = loadShaderProgram("shadow_vs", "shadow_fs");
-	terrain_shader = loadShaderProgram("terrain_vs", "terrain_fs");
 	post_process_shader = loadShaderProgram("post_process_vs", "post_process_fs");
+
+	if (use_tessellation)
+		terrain_shader = loadShaderProgram("tess_vs", "tess_tc", "tess_te", "terrain_fs");
+	else
+		terrain_shader = loadShaderProgram("terrain_vs", "terrain_fs");
 
 	tex_location = glGetUniformLocation(tex_shader, "tex");
 
@@ -398,26 +406,6 @@ void Renderer::render() {
 	if (use_caster_view) view_mat = caster_view_mat;
 
 
-	//------------- uniforms -------------
-
-	//sky uniforms
-	glUseProgram(sky_shader);
-	glUniformMatrix4fv(sky_view_mat, 1, GL_FALSE, glm::value_ptr(view_mat));
-	glUniform3fv(sky_sun_direction, 1, glm::value_ptr(sun_direction));
-
-	//terrain uniforms
-	glUseProgram(terrain_shader);
-	glUniform3fv(terrain_sun_direction, 1, glm::value_ptr(sun_direction));
-
-	glUniformMatrix4fv(view_mat_location, 1, GL_FALSE, glm::value_ptr(view_mat));
-	glUniformMatrix4fv(model_mat_location, 1, GL_FALSE, glm::value_ptr(model_mat));
-
-	glUniformMatrix4fv(terrain_caster_view_location, 1, GL_FALSE, glm::value_ptr(caster_view_mat));
-	glUniformMatrix4fv(terrain_caster_proj_location, 1, GL_FALSE, glm::value_ptr(caster_proj_mat));
-	glUniformMatrix4fv(terrain_caster_model_location, 1, GL_FALSE, glm::value_ptr(caster_model_mat));
-
-	glUniform1f(terrain_time_location, static_cast<float>(glfwGetTime()));
-
 	//------------- shadowmaps -------------
 
 	// bind framebuffer that renders to texture instead of screen
@@ -454,14 +442,22 @@ void Renderer::render() {
 	//select wireframe if flag is set
 	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
+	glUseProgram(0);
+
 
 	//------------- sky -------------
 
 	glDepthMask(GL_FALSE);
 	glDisable(GL_CULL_FACE);
+
 	glUseProgram(sky_shader);
+
+	glUniformMatrix4fv(sky_view_mat, 1, GL_FALSE, glm::value_ptr(view_mat));
+	glUniform3fv(sky_sun_direction, 1, glm::value_ptr(sun_direction));
+
 	glBindVertexArray(skybox_vao);
 	glDrawArrays(GL_TRIANGLES, 0, 36);
+
 	glDepthMask(GL_TRUE);
 	glEnable(GL_CULL_FACE);
 
@@ -470,10 +466,21 @@ void Renderer::render() {
 	glBindTexture(GL_TEXTURE_2D, fb_tex_depth);
 	glUniform1i(shadow_map_location, 0);
 
+	glUseProgram(0);
+
 
 	//------------- terrain -------------
 
 	glUseProgram(terrain_shader);
+
+	glUniformMatrix4fv(view_mat_location, 1, GL_FALSE, glm::value_ptr(view_mat));
+	glUniformMatrix4fv(model_mat_location, 1, GL_FALSE, glm::value_ptr(model_mat));
+	glUniformMatrix4fv(terrain_caster_view_location, 1, GL_FALSE, glm::value_ptr(caster_view_mat));
+	glUniformMatrix4fv(terrain_caster_proj_location, 1, GL_FALSE, glm::value_ptr(caster_proj_mat));
+	glUniformMatrix4fv(terrain_caster_model_location, 1, GL_FALSE, glm::value_ptr(caster_model_mat));
+	glUniform3fv(terrain_sun_direction, 1, glm::value_ptr(sun_direction));
+	glUniform1f(terrain_time_location, static_cast<float>(glfwGetTime()));
+
 	glBindVertexArray(terrain_vao);
 
 	//flag to not use water shading
@@ -481,8 +488,16 @@ void Renderer::render() {
 
 	glPolygonMode(GL_FRONT_AND_BACK, wireframe ? GL_LINE : GL_FILL);
 
-	glDrawArrays(GL_TRIANGLES, 0, terrain->getPolyCount() * 9);
 
+	if (use_tessellation) {
+		glPatchParameteri(GL_PATCH_VERTICES, 3);
+		glDrawArrays(GL_PATCHES, 0, terrain->getPolyCount() * 9);
+	}
+	else {
+		glDrawArrays(GL_TRIANGLES, 0, terrain->getPolyCount() * 9);
+	}
+
+	glUseProgram(0);
 
 	//------------- water -------------
 
@@ -493,18 +508,28 @@ void Renderer::render() {
 	glUniform1i(terrain_waterflag_location, 1);
 
 	//alpha blending
-	glEnable(GL_BLEND); 
+	glEnable(GL_BLEND);
+	glDisable(GL_CULL_FACE);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-	glDrawArrays(GL_TRIANGLES, 0, terrain->getWaterChunkCount() * 18);
+
+	if (use_tessellation) {
+		glPatchParameteri(GL_PATCH_VERTICES, 3);
+		glDrawArrays(GL_PATCHES, 0, terrain->getWaterBufferSize());
+	}
+	else {
+		glDrawArrays(GL_TRIANGLES, 0, terrain->getWaterBufferSize());
+	}
 
 	//reset polygon mode
 	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 	glDisable(GL_BLEND);
+	glEnable(GL_CULL_FACE);
 
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+	glUseProgram(0);
 
 	//------------- post processing -------------
 	
@@ -528,6 +553,7 @@ void Renderer::render() {
 	glBindVertexArray(ss_quad_vao);
 	glDrawArrays(GL_TRIANGLES, 0, 6);
 
+	glUseProgram(0);
 
 	//put stuff on display
 	glfwSwapBuffers(window);
@@ -807,12 +833,12 @@ void Renderer::buildTerrainBuffers() {
 	points_vbo = 0;
 	glGenBuffers(1, &points_vbo);
 	glBindBuffer(GL_ARRAY_BUFFER, points_vbo);
-	glBufferData(GL_ARRAY_BUFFER, terrain->getWaterChunkCount() * 18 * sizeof(float), terrain->getWaterVertexBuffer(), GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, terrain->getWaterBufferSize() * sizeof(float), terrain->getWaterVertexBuffer(), GL_STATIC_DRAW);
 
 	normals_vbo = 0;
 	glGenBuffers(1, &normals_vbo);
 	glBindBuffer(GL_ARRAY_BUFFER, normals_vbo);
-	glBufferData(GL_ARRAY_BUFFER, terrain->getWaterChunkCount() * 18 * sizeof(float), terrain->getWaterNormalBuffer(), GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, terrain->getWaterBufferSize() * sizeof(float), terrain->getWaterNormalBuffer(), GL_STATIC_DRAW);
 
 	vao = 0;
 	glGenVertexArrays(1, &vao);
@@ -851,6 +877,42 @@ GLuint Renderer::loadShaderProgram(char* vs_name, char* fs_name) {
 	return shader_program;
 }
 
+GLuint Renderer::loadShaderProgram(char* vs_name, char* tc_name, char* te_name, char* fs_name) {
+	std::string vs_path = std::string("./Shader/");
+	vs_path.append(vs_name);
+	vs_path.append(".glsl");
+
+	std::string tc_path = std::string("./Shader/");
+	tc_path.append(tc_name);
+	tc_path.append(".glsl");
+
+	std::string te_path = std::string("./Shader/");
+	te_path.append(te_name);
+	te_path.append(".glsl");
+
+	std::string fs_path = std::string("./Shader/");
+	fs_path.append(fs_name);
+	fs_path.append(".glsl");
+
+	Shader* vs = new Shader(vs_path.c_str(), GL_VERTEX_SHADER);
+	Shader* tc = new Shader(tc_path.c_str(), GL_TESS_CONTROL_SHADER);
+	Shader* te = new Shader(te_path.c_str(), GL_TESS_EVALUATION_SHADER);
+	Shader* fs = new Shader(fs_path.c_str(), GL_FRAGMENT_SHADER);
+	vs->compile();
+	tc->compile();
+	te->compile();
+	fs->compile();
+
+	GLuint shader_program = glCreateProgram();
+	glAttachShader(shader_program, vs->getIndex());
+	glAttachShader(shader_program, tc->getIndex());
+	glAttachShader(shader_program, te->getIndex());
+	glAttachShader(shader_program, fs->getIndex());
+	glLinkProgram(shader_program);
+	is_valid(shader_program);
+	return shader_program;
+}
+
 void Renderer::initCamera() {
 
 	cam.speed = 20.0f;
@@ -861,8 +923,8 @@ void Renderer::initCamera() {
 	cam.rot.y = 0.0f;
 
 	//input variables
-	float near = 0.1f; //clipping plane
-	float far = 1000.0f; //clipping plane
+	float near = 0.01f; //clipping plane
+	float far = 800.0f; //clipping plane
 	float fov = 67.0f * ONE_DEG_IN_RAD; //67 radians
 	float aspect = (float)g_gl_width / (float)g_gl_height;
 	//matrix components

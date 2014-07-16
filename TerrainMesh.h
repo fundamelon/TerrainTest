@@ -1,12 +1,16 @@
 #include <vector>
 #include <set>
 #include <algorithm>
+#include <limits>
+#include <string>
+#include <sstream>
 #include <glm/glm.hpp>
 #include <noise/noise.h>
+#include "thirdparty/noiseutils/noiseutils.h"
 
 //constant terrain parameters
 #define GRID_SIZE 32
-#define GRID_SPACING 1.0f
+#define GRID_SPACING 2.0f
 #define MAX_POLY_PER_VERTEX 16
 
 //preliminary declaration
@@ -37,13 +41,16 @@ struct Trif {
 
 struct Chunk {
 	//level of detail
-	int lod;
+	unsigned int lod;
+
+	//unique index
+	unsigned int index;
 
 	//flag indicating if chunk is to be deleted
 	bool deleting = false;
 
-	//flag indicating if chunk should contain water
-	bool water = false;
+	//flags indicating if chunk should contain water
+	bool water = false, water_edge = false;
 
 	//position of bottom left corner
 	glm::vec2 origin;
@@ -53,6 +60,9 @@ struct Chunk {
 
 	//chunk data
 	Point* points;
+
+	//heightmap data
+	utils::NoiseMap heightmap;
 };
 
 //Main terrain class.  Handles all operations and calculates output polygons/mesh.
@@ -83,7 +93,7 @@ public:
 
 	unsigned int getLOD(Chunk*);
 	unsigned int getPolyCount();
-	unsigned int getWaterChunkCount();
+	unsigned int getWaterBufferSize();
 	unsigned int getChunkCount();
 	float getChunkSpacing();
 	float getTerrainDisplacement(glm::vec2);
@@ -105,8 +115,13 @@ public:
 
 	int chunk_dist = 12;
 
-	float terrain_disp = 1.0f;
+	float terrain_disp = -1.0f;
 	float water_height = 0.0f;
+
+	float heightmap_scale_value = 1.0f;
+	float heightmap_bias_value = 0;
+
+//	unsigned int water_mesh_divs = 16;
 
 private:
 	std::vector<Chunk*> chunks;
@@ -130,7 +145,7 @@ private:
 	unsigned int polycount = 0;
 
 	//amount of chunks that will have water.
-	unsigned int water_chunks;
+	unsigned int water_buffer_size;
 
 	noise::module::Billow baseFlatTerrain;
 	noise::module::ScaleBias flatTerrain;
@@ -156,9 +171,12 @@ private:
 	noise::module::Add mountainAdder;
 	noise::module::Select mountainSelector;
 
+	noise::module::Perlin terrainSwirl;
+
 	noise::module::Turbulence finalTerrain;
 
-	noise::module::Perlin terrainSwirl;
+	noise::module::ScaleBias samplerScale;
+
 
 	float* terrain_vertex_buffer;
 	float* terrain_normal_buffer;

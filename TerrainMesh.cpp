@@ -11,8 +11,10 @@ TerrainMesh::TerrainMesh() {
 	flatTerrain.SetScale(0.125);
 	flatTerrain.SetBias(-0.75);
 
+	hillTerrain.SetFrequency(0.7);
+
 	//hill selector
-	terrainTypeHill.SetFrequency(0.5);
+	terrainTypeHill.SetFrequency(0.2);
 	terrainTypeHill.SetPersistence(0.25);
 
 	//combine hills
@@ -28,8 +30,9 @@ TerrainMesh::TerrainMesh() {
 
 	//mountains
 	baseMountainTerrain.SetFrequency(0.3f);
+//	baseMountainTerrain.SetLacunarity(1.2f);
 	mountainTerrain.SetSourceModule(0, baseMountainTerrain);
-	mountainTerrain.SetScale(5.0f);
+	mountainTerrain.SetScale(7.0f);
 	mountainTerrain.SetBias(5.0f);
 
 	foothillTerrain.SetSourceModule(0, hillTerrain);
@@ -38,8 +41,8 @@ TerrainMesh::TerrainMesh() {
 	mountainAdder.SetSourceModule(1, mountainTerrain);
 
 	//mountain selector
-	terrainTypeMountain.SetFrequency(0.3f);
-	terrainTypeMountain.SetPersistence(0.1);
+	terrainTypeMountain.SetFrequency(0.2f);
+	terrainTypeMountain.SetPersistence(0.005);
 	terrainTypeMountain.SetLacunarity(0.1);
 
 	//combine mountains
@@ -47,12 +50,13 @@ TerrainMesh::TerrainMesh() {
 	mountainSelector.SetSourceModule(1, mountainAdder);
 	mountainSelector.SetControlModule(terrainTypeMountain);
 	mountainSelector.SetBounds(-1.0, -0.4f);
-	mountainSelector.SetEdgeFalloff(0.25f);
+	mountainSelector.SetEdgeFalloff(0.6f);
 
 	//large sweeping terrain height variation
 	terrainLargeVariation.SetFrequency(0.05);
 	terrainLargeVariationScaler.SetSourceModule(0, terrainLargeVariation);
-	terrainLargeVariationScaler.SetScale(2.0);
+	terrainLargeVariationScaler.SetScale(20.0);
+	terrainLargeVariationScaler.SetBias(terrain_disp);
 	terrainLargeVariationAdder.SetSourceModule(0, mountainSelector);
 	terrainLargeVariationAdder.SetSourceModule(1, terrainLargeVariationScaler);
 
@@ -60,6 +64,32 @@ TerrainMesh::TerrainMesh() {
 	finalTerrain.SetSourceModule(0, terrainLargeVariationAdder);
 	finalTerrain.SetFrequency(1.0);
 	finalTerrain.SetPower(0);
+
+	samplerScale.SetSourceModule(0, finalTerrain);
+	samplerScale.SetScale(heightmap_scale_value);
+	samplerScale.SetBias(heightmap_bias_value);
+
+
+	/*
+	utils::NoiseMap heightMap;
+	utils::NoiseMapBuilderPlane heightMapBuilder;
+	heightMapBuilder.SetSourceModule(finalTerrain);
+	heightMapBuilder.SetDestNoiseMap(heightMap);
+	heightMapBuilder.SetDestSize(1024, 1024);
+	heightMapBuilder.SetBounds(-50.0, 50.0, -50.0, 50.0);
+	heightMapBuilder.Build();
+
+	utils::RendererImage renderer;
+	utils::Image image;
+	renderer.SetSourceNoiseMap(heightMap);
+	renderer.SetDestImage(image);
+	renderer.Render();
+
+	utils::WriterBMP writer;
+	writer.SetSourceImage(image);
+	writer.SetDestFilename("overview.bmp");
+	writer.WriteDestFile();
+	*/
 }
 
 TerrainMesh::~TerrainMesh() {
@@ -81,11 +111,29 @@ void TerrainMesh::generateChunk(int x, int y, int lod) {
 	c->origin = glm::vec2(getChunkSpacing() * c->addr.x - getChunkSpacing() / 2, getChunkSpacing() * c->addr.y - getChunkSpacing() / 2);
 	c->lod = getLOD(c);
 
+
 	unsigned int vert_i = 0; // vertex index
 
-	float horizontal_scale = 0.5f;
-	float vertical_scale = 10.0f;
+	float horizontal_scale = 0.007f;
+	float vertical_scale = 6.0f;
+//	float vertical_scale = 20.0f;
 	int lod_mul = pow(2, c->lod);
+
+	
+	utils::NoiseMapBuilderPlane heightMapBuilder;
+	heightMapBuilder.SetSourceModule(samplerScale);
+	heightMapBuilder.SetDestNoiseMap(c->heightmap);
+	heightMapBuilder.SetDestSize(GRID_SIZE/lod_mul, GRID_SIZE/lod_mul);
+	heightMapBuilder.SetBounds(c->origin.x * horizontal_scale, (c->origin.x + getChunkSpacing()) * horizontal_scale, c->origin.y * horizontal_scale, (c->origin.y + getChunkSpacing()) * horizontal_scale);
+	heightMapBuilder.Build();
+
+	/*
+	utils::RendererImage renderer;
+	utils::Image image;
+	renderer.SetSourceNoiseMap(c->heightmap);
+	renderer.SetDestImage(image);
+	renderer.Render();
+	*/
 
 	c->points = new Point[GRID_SIZE * GRID_SIZE];
 	//iterate through grid
@@ -98,10 +146,23 @@ void TerrainMesh::generateChunk(int x, int y, int lod) {
 			if (row % lod_mul != 0 || col % lod_mul != 0) {
 				c->points[vert_i].vert.z = 100;
 			} else {
-				float x = c->points[vert_i].vert.x * horizontal_scale;
-				float y = c->points[vert_i].vert.y * horizontal_scale;
-				c->points[vert_i].vert.z = (terrain_disp + getTerrainDisplacement(glm::vec2(x, y)))*vertical_scale; // z
+				float x = (c->points[vert_i].vert.x - c->origin.x);
+				float y = (c->points[vert_i].vert.y - c->origin.y);
+				x /= getChunkSpacing();
+				y /= getChunkSpacing();
+
+				x *= GRID_SIZE / lod_mul;
+				y *= GRID_SIZE / lod_mul;
+
+				float disp = c->heightmap.GetValue((int)(x), (int)(y));
+			//	float disp = image.GetValue((int)(x), (int)(y)).red / 256.0f;
+
+			//	c->points[vert_i].vert.z = (terrain_disp + getTerrainDisplacement(glm::vec2(x, y)))*vertical_scale; // z
+				c->points[vert_i].vert.z = (disp - heightmap_bias_value) * vertical_scale * 1 / heightmap_scale_value;
 				if (c->points[vert_i].vert.z <= water_height) c->water = true;
+
+			//	if (disph < 0 || disph > 1) printf("ERROR: Displacement exceeded heightmap limit: %f\n", disph);
+			//	printf("%f, %f, %f\n", x, y, disp);
 
 				for (int i = 0; i < MAX_POLY_PER_VERTEX; i++)
 					c->points[vert_i].users[i] = -1;
@@ -111,6 +172,18 @@ void TerrainMesh::generateChunk(int x, int y, int lod) {
 		}
 	}
 
+	c->index = chunks.size();
+	/*
+	std::ostringstream s;
+	s << "chunk_" << c->index << ".bmp";
+
+	printf("Writing file %s...\n", s.str().c_str());
+
+	utils::WriterBMP writer;
+	writer.SetSourceImage(image);
+	writer.SetDestFilename(s.str().c_str());
+	writer.WriteDestFile();
+	*/
 	chunks.push_back(c);
 }
 
@@ -141,16 +214,12 @@ void TerrainMesh::updateChunks() {
 			flag_updated = true;
 		} else {
 			//check all neighbor chunks and set water accordingly
-			std::vector<Chunk*> set_to_water;
 			for (int x = -1; x <= 1; x++)
 				for (int y = -1; y <= 1; y++)
-					if ((x!=0 || y!=0) && getChunkAt(c->addr.x + x, c->addr.y + y)!=NULL && getChunkAt(c->addr.x + x, c->addr.y + y)->water)
-						set_to_water.push_back(c);
-	
-			for (int i = 0; i < set_to_water.size(); i++)
-				set_to_water.at(i)->water = true;
-
-			if (set_to_water.size() != 0) flag_updated = true;
+					if ((x != 0 || y != 0) && getChunkAt(c->addr.x + x, c->addr.y + y) != NULL && getChunkAt(c->addr.x + x, c->addr.y + y)->water) {
+						c->water_edge = true;
+						flag_updated = true;
+					}
 		}
 	}
 
@@ -571,6 +640,9 @@ void TerrainMesh::triangulate() {
 			}
 		}
 	}
+
+	//far mesh
+
 }
 
 void TerrainMesh::genTerrainBuffers() {
@@ -629,64 +701,56 @@ void TerrainMesh::genWaterBuffers() {
 	delete[] water_vertex_buffer;
 	delete[] water_normal_buffer;
 
-	water_chunks = 0;
+	std::vector<Trif> water_tris;
 
-	for (unsigned int i = 0; i < chunks.size(); i++) {
-		if (chunks.at(i)->water) water_chunks++;
+	for (int i = 0; i < chunks.size(); i++) {
+		if (!chunks.at(i)->water && !chunks.at(i)->water_edge) continue;
+
+		int dx = abs(chunkPos.x - chunks.at(i)->addr.x);
+		int dy = abs(chunkPos.y - chunks.at(i)->addr.y);
+		int dist = fmax(dx, dy);
+
+		unsigned int water_mesh_divs = dist <= 1 ? 16 : 1;
+
+		glm::vec3 origin = glm::vec3(chunks.at(i)->origin, water_height);
+
+		for (unsigned int x = 0; x < water_mesh_divs; x++) {
+			for (unsigned int y = 0; y < water_mesh_divs; y++) {
+				Trif t1;
+				Trif t2;
+
+				float spacing = getChunkSpacing() / water_mesh_divs;
+				glm::vec3 offset = glm::vec3(spacing * x, spacing * y, 0.0f);
+
+				t1.verts[0] = origin + glm::vec3(spacing * (x+0), spacing * (y+0), 0.0f);
+				t1.verts[1] = origin + glm::vec3(spacing * (x+0), spacing * (y+1), 0.0f);
+				t1.verts[2] = origin + glm::vec3(spacing * (x+1), spacing * (y+1), 0.0f);
+														   					
+				t2.verts[0] = origin + glm::vec3(spacing * (x+1), spacing * (y+1), 0.0f);
+				t2.verts[1] = origin + glm::vec3(spacing * (x+1), spacing * (y+0), 0.0f);
+				t2.verts[2] = origin + glm::vec3(spacing * (x+0), spacing * (y+0), 0.0f);
+
+				water_tris.push_back(t1);
+				water_tris.push_back(t2);
+			}
+		}
 	}
 
-	water_vertex_buffer = new float[18 * water_chunks];
-	water_normal_buffer = new float[18 * water_chunks];
+	water_buffer_size = water_tris.size() * 9;
 
-	//chunk pointer
-	unsigned int i = 0;
+	water_vertex_buffer = new float[water_buffer_size];
+	water_normal_buffer = new float[water_buffer_size];
 
-	//loop counter
-	unsigned int j = 0;
-
-	while (i < chunks.size()) {
-		if (!chunks.at(i)->water) {
-			i++;
-			continue;
+	for (int i = 0; i < water_tris.size(); i++) {
+		for (int j = 0; j < 3; j++) {
+			water_vertex_buffer[i*9 + j*3 + 0] = water_tris.at(i).verts[j].x;
+			water_vertex_buffer[i*9 + j*3 + 1] = water_tris.at(i).verts[j].y;
+			water_vertex_buffer[i*9 + j*3 + 2] = water_tris.at(i).verts[j].z;
+									
+			water_normal_buffer[i*9 + j*3 + 0] = 0.0f;
+			water_normal_buffer[i*9 + j*3 + 1] = 0.0f;
+			water_normal_buffer[i*9 + j*3 + 2] = 1.0f;
 		}
-
-		glm::vec3 bottom_left = glm::vec3(chunks.at(i)->origin, water_height);
-		glm::vec3 top_left = bottom_left + glm::vec3(0.0f, getChunkSpacing(), 0.0f);
-		glm::vec3 top_right = bottom_left + glm::vec3(getChunkSpacing(), getChunkSpacing(), 0.0f);
-		glm::vec3 bottom_right = bottom_left + glm::vec3(getChunkSpacing(), 0.0f, 0.0f);
-
-		water_vertex_buffer[j * 18 +  0] = bottom_left.x;
-		water_vertex_buffer[j * 18 +  1] = bottom_left.y;
-		water_vertex_buffer[j * 18 +  2] = bottom_left.z;
-							
-		water_vertex_buffer[j * 18 +  3] = top_left.x;
-		water_vertex_buffer[j * 18 +  4] = top_left.y;
-		water_vertex_buffer[j * 18 +  5] = top_left.z;
-								
-		water_vertex_buffer[j * 18 +  6] = top_right.x;
-		water_vertex_buffer[j * 18 +  7] = top_right.y;
-		water_vertex_buffer[j * 18 +  8] = top_right.z;
-								
-		water_vertex_buffer[j * 18 +  9] = top_right.x;
-		water_vertex_buffer[j * 18 + 10] = top_right.y;
-		water_vertex_buffer[j * 18 + 11] = top_right.z;
-								
-		water_vertex_buffer[j * 18 + 12] = bottom_right.x;
-		water_vertex_buffer[j * 18 + 13] = bottom_right.y;
-		water_vertex_buffer[j * 18 + 14] = bottom_right.z;
-								
-		water_vertex_buffer[j * 18 + 15] = bottom_left.x;
-		water_vertex_buffer[j * 18 + 16] = bottom_left.y;
-		water_vertex_buffer[j * 18 + 17] = bottom_left.z;
-
-		for (int k = j * 18; k < (j+1) * 18; k += 3) {
-			water_normal_buffer[k + 0] = 0.0f;
-			water_normal_buffer[k + 1] = 0.0f;
-			water_normal_buffer[k + 2] = 1.0f;
-		}
-
-		i++;
-		j++;
 	}
 }
 
@@ -739,8 +803,8 @@ unsigned int TerrainMesh::getChunkCount() {
 	return chunks.size();
 }
 
-unsigned int TerrainMesh::getWaterChunkCount() {
-	return water_chunks;
+unsigned int TerrainMesh::getWaterBufferSize() {
+	return water_buffer_size;
 }
 
 unsigned int TerrainMesh::getLOD(Chunk* c) {

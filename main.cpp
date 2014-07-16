@@ -34,10 +34,9 @@ int main() {
 	mainRenderer->init();
 
 	mainTerrain = new TerrainMesh();
-	mainTerrain->setSeed(12);
-	//	 8 : plains
-	//   9 : hills
-	//1000 : big cliff
+
+	//TERRAIN SEED
+	mainTerrain->setSeed(233);
 
 	mainRenderer->setTerrain(mainTerrain);
 	mainRenderer->initTerrain();

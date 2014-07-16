@@ -33,6 +33,9 @@
     <ClCompile Include="TerrainMesh.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="thirdparty\noiseutils\noiseutils.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="util.h">
@@ -49,6 +52,9 @@
     </ClInclude>
     <ClInclude Include="TerrainMesh.h">
       <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\noiseutils\noiseutils.h">
+      <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -74,5 +80,11 @@
     <None Include="shader\shadow_vs.glsl" />
     <None Include="shader\tex_fs.glsl" />
     <None Include="shader\tex_vs.glsl" />
+    <None Include="shader\tes.glsl" />
+    <None Include="shader\tcs.glsl" />
+    <None Include="shader\tess_vs.glsl" />
+    <None Include="shader\tess_fs.glsl" />
+    <None Include="shader\tess_tc.glsl" />
+    <None Include="shader\tess_te.glsl" />
   </ItemGroup>
 </Project>

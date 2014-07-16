@@ -87,6 +87,7 @@
     <ClCompile Include="renderer.cpp" />
     <ClCompile Include="Shader.cpp" />
     <ClCompile Include="TerrainMesh.cpp" />
+    <ClCompile Include="thirdparty\noiseutils\noiseutils.cpp" />
     <ClCompile Include="util.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -94,6 +95,7 @@
     <ClInclude Include="renderer.h" />
     <ClInclude Include="Shader.h" />
     <ClInclude Include="TerrainMesh.h" />
+    <ClInclude Include="thirdparty\noiseutils\noiseutils.h" />
     <ClInclude Include="util.h" />
   </ItemGroup>
   <ItemGroup>
@@ -106,8 +108,14 @@
     <None Include="shader\shadow_vs.glsl" />
     <None Include="shader\sky_fs.glsl" />
     <None Include="shader\sky_vs.glsl" />
+    <None Include="shader\tcs.glsl" />
     <None Include="shader\terrain_fs.glsl" />
     <None Include="shader\terrain_vs.glsl" />
+    <None Include="shader\tes.glsl" />
+    <None Include="shader\tess_fs.glsl" />
+    <None Include="shader\tess_tc.glsl" />
+    <None Include="shader\tess_te.glsl" />
+    <None Include="shader\tess_vs.glsl" />
     <None Include="shader\tex_fs.glsl" />
     <None Include="shader\tex_vs.glsl" />
     <None Include="shader\vs.glsl" />

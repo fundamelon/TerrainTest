@@ -43,6 +43,7 @@ public:
 	void loadSkybox();
 	void loadFramebuffer();
 	GLuint loadShaderProgram(char*, char*);
+	GLuint loadShaderProgram(char*, char*, char*, char*);
 	void loadTestTri();
 	void loadPostProcessShader();
 
@@ -67,6 +68,8 @@ public:
 	//true while rendering.
 	bool render_lock = false;
 	bool use_caster_view = false;
+	
+	bool use_tessellation = false;
 
 	bool cam_moved;
 
@@ -97,6 +100,8 @@ private:
 	GLuint shadow_shader;
 	GLuint tex_shader;
 	GLuint water_shader;
+	GLuint tess_shader;
+	GLuint terrain_tess_shader;
 
 	//uniforms
 	GLuint view_mat_location;
