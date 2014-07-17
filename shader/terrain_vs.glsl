@@ -22,10 +22,6 @@ void main () {
 	shadow_coord.xyz += 1.0;
 	shadow_coord.xyz *= 0.5;
 
-	if(water == 1) {
-	//	vertex_position.z += cos(time + vertex_position.x * 100.0f) * 1;
-	}
-
 	position = vertex_position;
 	normal = vertex_normal;
 

@@ -403,6 +403,7 @@ void Renderer::render() {
 	view_mat = glm::rotate(view_mat, -cam.rot.y, glm::vec3(0.0f, 1.0f, 0.0f));
 	view_mat = glm::rotate(view_mat, -90.0f, glm::vec3(1.0f, 0.0f, 0.0f));
 
+
 	if (use_caster_view) view_mat = caster_view_mat;
 
 

@@ -69,7 +69,7 @@ public:
 	bool render_lock = false;
 	bool use_caster_view = false;
 	
-	bool use_tessellation = false;
+	bool use_tessellation = true;
 
 	bool cam_moved;
 

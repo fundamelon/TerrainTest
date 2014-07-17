@@ -80,7 +80,7 @@ vec4 terrain_color() {
 	float dot_prod = max(dot(sun_direction, normal), 0.0);
 	
 	// diffuse intensity
-	vec3 light_position_eye = vec3(view_mat * vec4(sun_direction, 1.0));
+//	vec3 light_position_eye = vec3(view_mat * vec4(sun_direction, 1.0));
 	vec3 Id = Ld * Kd * dot_prod; //final intensity
   
 	// shaded color
@@ -145,4 +145,6 @@ void main () {
 	fog_fac = clamp (fog_fac, 0.0, 1.0);
 
 	frag_color = mix (pre_color, fog_color, fog_fac);
+
+//	frag_color = vec4(position.z/1, 0.0, 0.0, 1.0);
 }
