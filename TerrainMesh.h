@@ -1,3 +1,5 @@
+#pragma once
+
 #include <vector>
 #include <set>
 #include <algorithm>
@@ -8,15 +10,13 @@
 #include <noise/noise.h>
 #include "thirdparty/noiseutils/noiseutils.h"
 
-//constant terrain parameters
-#define GRID_SIZE 32
-#define GRID_SPACING 2.0f
 #define MAX_POLY_PER_VERTEX 16
 
 //preliminary declaration
 struct Tri;
 
 struct Point {
+
 	//vertex
 	glm::vec3 vert;
 
@@ -29,17 +29,21 @@ struct Point {
 
 //data structure for a single triangle
 struct Tri {
+
 	//index data
 	Point* points[3];
 	glm::vec3 norm;
 };
 
 //value triangle, use as override
-struct Trif {
+struct Trif : Tri {
+
 	glm::vec3 verts[3];
+	glm::vec2 texcoords[3];
 };
 
 struct Chunk {
+
 	//level of detail
 	unsigned int lod;
 
@@ -67,13 +71,14 @@ struct Chunk {
 
 //Main terrain class.  Handles all operations and calculates output polygons/mesh.
 class TerrainMesh {
+
 public:
+
 	TerrainMesh();
 	~TerrainMesh();
 
 	void generateChunk(int, int, int);
 
-	void update(glm::vec2 pos);
 	void updateChunks();
 
 	void triangulate();
@@ -90,12 +95,12 @@ public:
 	float* getTerrainNormalBuffer();
 	float* getWaterVertexBuffer();
 	float* getWaterNormalBuffer();
+	float* getWaterTexcoordBuffer();
 
 	unsigned int getLOD(Chunk*);
 	unsigned int getPolyCount();
 	unsigned int getWaterBufferSize();
 	unsigned int getChunkCount();
-	float getChunkSpacing();
 	float getTerrainDisplacement(glm::vec2);
 	Chunk* getChunkAt(int, int);
 
@@ -104,14 +109,14 @@ public:
 	bool containsChunkAt(int, int);
 
 	//status flags
-	bool flag_updating = false;
-	bool flag_generating = false;
-	bool flag_updated = true;
-	bool flag_bufready = true;
+//	bool flag_updating = false;
+//	bool flag_generating = false;
+//	bool flag_updated = true;
+//	bool flag_bufready = true;
 
 	//control flags
-	bool flag_force_update = false;
-	bool flag_force_facenormals = false;
+//	bool flag_force_update = false;
+//	bool flag_force_facenormals = false;
 
 	int chunk_dist = 12;
 
@@ -123,17 +128,21 @@ public:
 
 //	unsigned int water_mesh_divs = 16;
 
+
 private:
-	std::vector<Chunk*> chunks;
+
+	float* terrain_vertex_buffer;
+	float* terrain_normal_buffer;
+	float* water_vertex_buffer;
+	float* water_normal_buffer;
+	float* water_texcoord_buffer;
+
+//	std::vector<Chunk*> chunks;
 	std::vector<Tri> tris;
 	std::vector<glm::ivec2> chunk_gen_queue;
 
-	glm::ivec2 chunkPos;
-
-	int seed = 0;
-
 	//LOD controller
-	int lod_count = log2(GRID_SIZE) + 1;
+	int lod_count;
 
 	//Determines which LOD to use at distance.
 	//1: near
@@ -176,10 +185,4 @@ private:
 	noise::module::Turbulence finalTerrain;
 
 	noise::module::ScaleBias samplerScale;
-
-
-	float* terrain_vertex_buffer;
-	float* terrain_normal_buffer;
-	float* water_vertex_buffer;
-	float* water_normal_buffer;
 };

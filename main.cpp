@@ -1,39 +1,27 @@
 #include "main.h"
-#include <stdio.h>
-#include <boost/thread.hpp>
 
 #include "util.h"
 #include "renderer.h"
+#include "Terrain.h"
 
-void updateTerrainBuffers(Renderer* r, TerrainMesh* t) {
-	t->flag_updating = true;
+void updateTerrainBuffers(Terrain* t) {
+	printf("Scheduling terrain update...\n");
 	double start_seconds = glfwGetTime();
 
-//	printf("Scheduling terrain update...\n");
-	t->flag_bufready = false;
-
-	t->updateChunks();
-	t->triangulate();
-
-	t->genTerrainBuffers();
-	t->genWaterBuffers();
-
-	t->flag_updating = false;
+	t->regen();
 
 	double end_seconds = glfwGetTime();
 	printf("Terrain generated in %f sec\n", end_seconds - start_seconds);
-
-	t->flag_bufready = true;
 }
 
 int main() {
 	Renderer* mainRenderer;
-	TerrainMesh* mainTerrain;
+	Terrain* mainTerrain;
 
 	mainRenderer = new Renderer();
 	mainRenderer->init();
 
-	mainTerrain = new TerrainMesh();
+	mainTerrain = new Terrain();
 
 	//TERRAIN SEED
 	mainTerrain->setSeed(233);
@@ -45,24 +33,26 @@ int main() {
 
 	// initialize terrain
 	printf("Initializing terrain...\n");
-	mainTerrain->flag_force_update = true;
+
+	mainTerrain->forceUpdate();// flag_force_update = true;
 	mainTerrain->update(glm::vec2(mainRenderer->getCamPos()));
+
 	boost::thread* t;
-	t = new boost::thread(updateTerrainBuffers, mainRenderer, mainTerrain);
+	t = new boost::thread(updateTerrainBuffers, mainTerrain);
 
 	while (!mainRenderer->closeRequested()) {
 		mainTerrain->update(glm::vec2(mainRenderer->getCamPos()));
 
 		//start terrain update thread
-		if (mainTerrain->flag_updated && !mainTerrain->flag_updating)	{
+		if (mainTerrain->updateRequested())	{
 			delete t;
-			t = new boost::thread(updateTerrainBuffers, mainRenderer, mainTerrain);
+			t = new boost::thread(updateTerrainBuffers, mainTerrain);
 		}
 
-		//regenerate and assign terrain VAOs
-		if (mainTerrain->flag_bufready) {
+		// if able, regenerate and assign terrain VAOs
+		if (mainTerrain->buffersReady()) {
 			mainRenderer->buildTerrainBuffers();
-			mainTerrain->flag_bufready = false;
+			mainTerrain->buffersCreated();
 		}
 
 		mainRenderer->render();

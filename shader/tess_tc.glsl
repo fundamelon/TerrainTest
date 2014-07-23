@@ -18,7 +18,7 @@ out vec2 texcoord_te_in[];
 
 float get_tess_level() {
 
-	return clamp(5 - distance(vec3(0.0f), worldpos_tc_in[gl_InvocationID])/8, 1.0, 3.0);
+	return clamp(20 - distance(vec3(0.0f), worldpos_tc_in[gl_InvocationID])/4, 1.0, 13.0);
 }
 
  

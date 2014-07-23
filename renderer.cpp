@@ -2,6 +2,8 @@
 #define _CRT_SECURE_NO_WARNINGS
 #include "renderer.h"
 #include "Shader.h"
+#include "Terrain.h"
+#include "TerrainMesh.h"
 
 
 int g_gl_width = 1600;
@@ -296,13 +298,16 @@ void Renderer::init() {
 	GLFWmonitor* mon = glfwGetPrimaryMonitor();
 	const GLFWvidmode* vmode = glfwGetVideoMode(mon);
 
-	//windowed
-	window = glfwCreateWindow(g_gl_width, g_gl_height, "Initializing...", NULL, NULL);
+	if (fullscreen) {
+		//fullscreen
+		window = glfwCreateWindow(vmode->width, vmode->height, "Extended GL Init", mon, NULL);
+		g_gl_width = vmode->width;
+		g_gl_height = vmode->height;
+	} else {
+		//windowed
+		window = glfwCreateWindow(g_gl_width, g_gl_height, "Initializing...", NULL, NULL);
+	}
 
-	//fullscreen
-//	window = glfwCreateWindow(vmode->width, vmode->height, "Extended GL Init", mon, NULL);
-//	g_gl_width = vmode->width;
-//	g_gl_height = vmode->height;
 
 	glfwSetWindowSizeCallback(window, glfw_window_size_callback);
 
@@ -363,6 +368,8 @@ void Renderer::init() {
 	loadPostProcessShader();
 	initShadowMap();
 
+	water_disp_tex = SOIL_load_OGL_texture("resource/overview.bmp", SOIL_LOAD_AUTO, SOIL_CREATE_NEW_ID, SOIL_FLAG_INVERT_Y);
+	if (water_disp_tex == 0) printf("ERROR: %s\n", SOIL_last_result());
 }
 
 void Renderer::render() {
@@ -370,7 +377,7 @@ void Renderer::render() {
 	render_lock = true;
 
 	//slowly rotate sun
-	rotateSun(0.00001);
+	rotateSun(0.00001f);
 
 	elapsed_seconds = glfwGetTime() - frame_time;
 	frame_time = glfwGetTime();
@@ -394,7 +401,7 @@ void Renderer::render() {
 	//	glm::mat4 caster_proj_mat = glm::perspective(fov, aspect, near, far);
 	glm::mat4 caster_proj_mat = glm::ortho(-90.0f * shadow_map_scale, 90.0f * shadow_map_scale, -50.0f * shadow_map_scale, 50.0f * shadow_map_scale, near * shadow_map_scale, far * shadow_map_scale);
 
-	glm::mat4 caster_model_mat = glm::translate(glm::mat4(1.0f), glm::vec3(-terrain->getChunkPos().x * terrain->getChunkSpacing(), -terrain->getChunkPos().y * terrain->getChunkSpacing(), 0));
+	glm::mat4 caster_model_mat = glm::translate(glm::mat4(1.0f), glm::vec3(-terrain->getTerrainMesh()->getChunkPos().x * terrain->getChunkSpacing(), -terrain->getTerrainMesh()->getChunkPos().y * terrain->getChunkSpacing(), 0));
 
 	//update matrices modified by camera
 	model_mat = glm::translate(glm::mat4(1.0f), glm::vec3(-cam.pos[0], -cam.pos[1], -cam.pos[2]));
@@ -430,7 +437,7 @@ void Renderer::render() {
 	// draw terrain for shadowcasting
 	glBindVertexArray(terrain_vao);
 	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-	glDrawArrays(GL_TRIANGLES, 0, terrain->getPolyCount() * 9);
+	glDrawArrays(GL_TRIANGLES, 0, terrain->getTerrainMesh()->getPolyCount() * 9);
 
 	glEnable(GL_CULL_FACE);
 	//	glCullFace(GL_BACK);
@@ -492,10 +499,10 @@ void Renderer::render() {
 
 	if (use_tessellation) {
 		glPatchParameteri(GL_PATCH_VERTICES, 3);
-		glDrawArrays(GL_PATCHES, 0, terrain->getPolyCount() * 9);
+		glDrawArrays(GL_PATCHES, 0, terrain->getTerrainMesh()->getPolyCount() * 9);
 	}
 	else {
-		glDrawArrays(GL_TRIANGLES, 0, terrain->getPolyCount() * 9);
+		glDrawArrays(GL_TRIANGLES, 0, terrain->getTerrainMesh()->getPolyCount() * 9);
 	}
 
 	glUseProgram(0);
@@ -513,13 +520,15 @@ void Renderer::render() {
 	glDisable(GL_CULL_FACE);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
+	glActiveTexture(GL_TEXTURE1);
+	glBindTexture(GL_TEXTURE_2D, water_disp_tex);
 
 	if (use_tessellation) {
 		glPatchParameteri(GL_PATCH_VERTICES, 3);
-		glDrawArrays(GL_PATCHES, 0, terrain->getWaterBufferSize());
+		glDrawArrays(GL_PATCHES, 0, terrain->getTerrainMesh()->getWaterBufferSize());
 	}
 	else {
-		glDrawArrays(GL_TRIANGLES, 0, terrain->getWaterBufferSize());
+		glDrawArrays(GL_TRIANGLES, 0, terrain->getTerrainMesh()->getWaterBufferSize());
 	}
 
 	//reset polygon mode
@@ -728,7 +737,7 @@ void Renderer::initScreenspaceQuads() {
 	glEnableVertexAttribArray(1);
 }
 
-void Renderer::setTerrain(TerrainMesh* terrain) {
+void Renderer::setTerrain(Terrain* terrain) {
 	this->terrain = terrain;
 }
 
@@ -803,18 +812,18 @@ void Renderer::updateControls() {
 }
 
 void Renderer::buildTerrainBuffers() {
-//	printf("[REN] Building terrain buffers. \n\tTerrain polycount: %i\n", terrain->getPolyCount());
+//	printf("[REN] Building terrain buffers. \n\tTerrain polycount: %i\n", terrain->getTerrainMesh()->getPolyCount());
 
 	//terrain buffers
 	GLuint points_vbo = 0;
 	glGenBuffers(1, &points_vbo);
 	glBindBuffer(GL_ARRAY_BUFFER, points_vbo);
-	glBufferData(GL_ARRAY_BUFFER, terrain->getPolyCount() * 9 * sizeof(float), terrain->getTerrainVertexBuffer(), GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, terrain->getTerrainMesh()->getPolyCount() * 9 * sizeof(float), terrain->getTerrainMesh()->getTerrainVertexBuffer(), GL_STATIC_DRAW);
 
 	GLuint normals_vbo = 0;
 	glGenBuffers(1, &normals_vbo);
 	glBindBuffer(GL_ARRAY_BUFFER, normals_vbo);
-	glBufferData(GL_ARRAY_BUFFER, terrain->getPolyCount() * 9 * sizeof(float), terrain->getTerrainNormalBuffer(), GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, terrain->getTerrainMesh()->getPolyCount() * 9 * sizeof(float), terrain->getTerrainMesh()->getTerrainNormalBuffer(), GL_STATIC_DRAW);
 
 	GLuint vao = 0;
 	glGenVertexArrays(1, &vao);
@@ -834,24 +843,33 @@ void Renderer::buildTerrainBuffers() {
 	points_vbo = 0;
 	glGenBuffers(1, &points_vbo);
 	glBindBuffer(GL_ARRAY_BUFFER, points_vbo);
-	glBufferData(GL_ARRAY_BUFFER, terrain->getWaterBufferSize() * sizeof(float), terrain->getWaterVertexBuffer(), GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, terrain->getTerrainMesh()->getWaterBufferSize() * sizeof(float), terrain->getTerrainMesh()->getWaterVertexBuffer(), GL_STATIC_DRAW);
 
 	normals_vbo = 0;
 	glGenBuffers(1, &normals_vbo);
 	glBindBuffer(GL_ARRAY_BUFFER, normals_vbo);
-	glBufferData(GL_ARRAY_BUFFER, terrain->getWaterBufferSize() * sizeof(float), terrain->getWaterNormalBuffer(), GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, terrain->getTerrainMesh()->getWaterBufferSize() * sizeof(float), terrain->getTerrainMesh()->getWaterNormalBuffer(), GL_STATIC_DRAW);
+
+	GLuint texcoord_vbo = 0;
+	glGenBuffers(1, &texcoord_vbo);
+	glBindBuffer(GL_ARRAY_BUFFER, texcoord_vbo);
+	glBufferData(GL_ARRAY_BUFFER, terrain->getTerrainMesh()->getWaterBufferSize() / 3 * 2 * sizeof(float), terrain->getTerrainMesh()->getWaterTexcoordBuffer(), GL_STATIC_DRAW);
 
 	vao = 0;
 	glGenVertexArrays(1, &vao);
 	glBindVertexArray(vao);
-	glEnableVertexAttribArray(0);
+
 	glBindBuffer(GL_ARRAY_BUFFER, points_vbo);
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, NULL);
 	glBindBuffer(GL_ARRAY_BUFFER, normals_vbo);
 	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, NULL);
+	glBindBuffer(GL_ARRAY_BUFFER, texcoord_vbo);
+	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 0, (GLubyte*)NULL);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
 
 	glEnableVertexAttribArray(0);
 	glEnableVertexAttribArray(1);
+	glEnableVertexAttribArray(2);
 
 	water_vao = vao;
 }

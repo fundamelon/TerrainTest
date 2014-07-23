@@ -10,6 +10,8 @@
 #include <glm/gtc/matrix_access.hpp>
 #define ONE_DEG_IN_RAD (2.0 * 3.14159265) / 360.0 // 0.017444444
 
+#include <SOIL.h>
+
 #include <stdio.h>
 #include <time.h>
 #include <stdarg.h>
@@ -17,9 +19,9 @@
 #include <vector>
 #define GL_LOG_FILE "gl.log"
 
-#include "TerrainMesh.h"
-
 const double pi = 3.1415926535897;
+
+class Terrain;
 
 class Scene {
 public:
@@ -51,7 +53,7 @@ public:
 	void buildTerrainBuffers();
 
 	void setScene(Scene*);
-	void setTerrain(TerrainMesh*);
+	void setTerrain(Terrain*);
 
 	void initCamera();
 	glm::vec3 getCamPos();
@@ -64,6 +66,8 @@ public:
 	void terminate();
 
 	bool closeRequested();
+
+	bool fullscreen = false;
 
 	//true while rendering.
 	bool render_lock = false;
@@ -92,6 +96,7 @@ private:
 
 	//textures
 	GLuint depth_texture;
+	GLuint water_disp_tex;
 
 	//shader programs
 	GLuint post_process_shader;
@@ -130,7 +135,7 @@ private:
 	GLuint water_vao;
 
 	Scene* cur_scene;
-	TerrainMesh* terrain;
+	Terrain* terrain;
 
 	double elapsed_seconds, frame_time;
 

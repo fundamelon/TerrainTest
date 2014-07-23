@@ -36,6 +36,12 @@
     <ClCompile Include="thirdparty\noiseutils\noiseutils.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="TerrainFoliage.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Terrain.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="util.h">
@@ -54,6 +60,15 @@
       <Filter>Source Files</Filter>
     </ClInclude>
     <ClInclude Include="thirdparty\noiseutils\noiseutils.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="TerrainFoliage.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Terrain.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="TerrainWrapper.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

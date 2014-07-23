@@ -42,6 +42,7 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
+    <IncludePath>$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
@@ -53,13 +54,13 @@
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;_LIB;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>C:\Users\Igi\programs\libs\boost_1_55_0;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\Igi\programs\libs\boost_1_55_0;C:\Users\Igi\programs\libs\Simple OpenGL Image Library\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>glfw3dll.lib;glew32.lib;opengl32.lib;libnoise.lib</AdditionalDependencies>
-      <AdditionalLibraryDirectories>C:\Users\Igi\programs\libs\boost_1_55_0\stage\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>glfw3dll.lib;glew32.lib;opengl32.lib;libnoise.lib;SOIL.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>C:\Users\Igi\programs\libs\Simple OpenGL Image Library\lib;C:\Users\Igi\programs\libs\boost_1_55_0\stage\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -86,6 +87,8 @@
     <ClCompile Include="main.cpp" />
     <ClCompile Include="renderer.cpp" />
     <ClCompile Include="Shader.cpp" />
+    <ClCompile Include="Terrain.cpp" />
+    <ClCompile Include="TerrainFoliage.cpp" />
     <ClCompile Include="TerrainMesh.cpp" />
     <ClCompile Include="thirdparty\noiseutils\noiseutils.cpp" />
     <ClCompile Include="util.cpp" />
@@ -94,7 +97,10 @@
     <ClInclude Include="main.h" />
     <ClInclude Include="renderer.h" />
     <ClInclude Include="Shader.h" />
+    <ClInclude Include="Terrain.h" />
+    <ClInclude Include="TerrainFoliage.h" />
     <ClInclude Include="TerrainMesh.h" />
+    <ClInclude Include="TerrainWrapper.h" />
     <ClInclude Include="thirdparty\noiseutils\noiseutils.h" />
     <ClInclude Include="util.h" />
   </ItemGroup>

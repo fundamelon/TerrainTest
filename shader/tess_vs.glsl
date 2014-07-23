@@ -11,7 +11,6 @@ out vec3 normal_tc_in;
 out vec2 texcoord_tc_in;
 out vec3 worldpos_tc_in;
 
- 
 void main () {
 
 	position_tc_in = position_vs_in;

@@ -11,7 +11,6 @@ namespace util {
 	const bool DEBUG_SHADER = false;
 
 	std::string getFileContents(const char*);
-
 }
 
 #endif
