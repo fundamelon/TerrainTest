@@ -13,13 +13,19 @@ in vec2 texcoord_te_in[];
 uniform mat4 projection_mat, view_mat, model_mat;
 uniform mat4 caster_proj, caster_view, caster_model;
 uniform float time;
-uniform int water;
+uniform int type;
 
 out vec3 position, normal, position_eye, normal_eye;
 out vec2 texcoord;
 out vec4 shadow_coord;
- 
- 
+
+mat4 view_mat_mul = mat4(
+	1.0, 0.0, 0.0, 0.0,
+	0.0, 1.0, 0.0, 0.0,
+	0.0, 0.0, 1.0, 0.0,
+	0.0, 0.0, 0.0, 1.0
+);
+
 
 void main () {
 
@@ -41,7 +47,7 @@ void main () {
 
 	texcoord = tc0 + tc1 + tc2;
 	
-	if(water==1) {
+	if(type==1) {
 	//	normal.x = mix(normal.x, texture(disp_tex, texcoord).g * 2.0, clamp(distance(vec3(0.0f), position)/10, 0.0, 1.0));
 	//	normal.x += snoise(vec3(position.x, position.y, time));
 	//	position_vs_in.z = (texcoord_vs_in.s + texcoord_vs_in.t) * 2.0;
@@ -53,7 +59,12 @@ void main () {
 	shadow_coord.xyz += 1.0;
 	shadow_coord.xyz *= 0.5;
 
-	position_eye = vec3 (view_mat * model_mat * vec4 (position, 1.0));
+	if(type == 2) {
+		position_eye = vec3 (view_mat_mul * view_mat * model_mat * vec4 (position, 1.0));
+	} else {
+		position_eye = vec3 (view_mat * model_mat * vec4 (position, 1.0));
+	}
+
 	normal_eye = vec3 (view_mat * model_mat * vec4 (normal, 0.0));
 
 	gl_Position = projection_mat * vec4 (position_eye, 1.0);

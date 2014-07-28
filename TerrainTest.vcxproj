@@ -124,6 +124,9 @@
     <None Include="shader\tess_vs.glsl" />
     <None Include="shader\tex_fs.glsl" />
     <None Include="shader\tex_vs.glsl" />
+    <None Include="shader\tree_fs.glsl" />
+    <None Include="shader\tree_gs.glsl" />
+    <None Include="shader\tree_vs.glsl" />
     <None Include="shader\vs.glsl" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

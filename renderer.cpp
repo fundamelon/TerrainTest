@@ -3,7 +3,6 @@
 #include "renderer.h"
 #include "Shader.h"
 #include "Terrain.h"
-#include "TerrainMesh.h"
 
 
 int g_gl_width = 1600;
@@ -351,10 +350,12 @@ void Renderer::init() {
 	elapsed_seconds = 0;
 	frame_time = 0;
 
+//	default_shader = loadShaderProgram("vs", "fs");
 	sky_shader = loadShaderProgram("sky_vs", "sky_fs");
 	tex_shader = loadShaderProgram("tex_vs", "tex_fs");
 	shadow_shader = loadShaderProgram("shadow_vs", "shadow_fs");
 	post_process_shader = loadShaderProgram("post_process_vs", "post_process_fs");
+	forest_shader = loadShaderProgram("tree_vs", "tree_gs", "tree_fs");
 
 	if (use_tessellation)
 		terrain_shader = loadShaderProgram("tess_vs", "tess_tc", "tess_te", "terrain_fs");
@@ -370,6 +371,9 @@ void Renderer::init() {
 
 	water_disp_tex = SOIL_load_OGL_texture("resource/overview.bmp", SOIL_LOAD_AUTO, SOIL_CREATE_NEW_ID, SOIL_FLAG_INVERT_Y);
 	if (water_disp_tex == 0) printf("ERROR: %s\n", SOIL_last_result());
+
+	tree_test_tex = SOIL_load_OGL_texture("resource/pinetree.png", SOIL_LOAD_AUTO, SOIL_CREATE_NEW_ID, SOIL_FLAG_INVERT_Y);
+	if (tree_test_tex == 0) printf("ERROR: %s\n", SOIL_last_result());
 }
 
 void Renderer::render() {
@@ -401,7 +405,7 @@ void Renderer::render() {
 	//	glm::mat4 caster_proj_mat = glm::perspective(fov, aspect, near, far);
 	glm::mat4 caster_proj_mat = glm::ortho(-90.0f * shadow_map_scale, 90.0f * shadow_map_scale, -50.0f * shadow_map_scale, 50.0f * shadow_map_scale, near * shadow_map_scale, far * shadow_map_scale);
 
-	glm::mat4 caster_model_mat = glm::translate(glm::mat4(1.0f), glm::vec3(-terrain->getTerrainMesh()->getChunkPos().x * terrain->getChunkSpacing(), -terrain->getTerrainMesh()->getChunkPos().y * terrain->getChunkSpacing(), 0));
+	glm::mat4 caster_model_mat = glm::translate(glm::mat4(1.0f), glm::vec3(-terrain->getChunkPos().x * terrain->getChunkSpacing(), -terrain->getChunkPos().y * terrain->getChunkSpacing(), 0));
 
 	//update matrices modified by camera
 	model_mat = glm::translate(glm::mat4(1.0f), glm::vec3(-cam.pos[0], -cam.pos[1], -cam.pos[2]));
@@ -409,7 +413,6 @@ void Renderer::render() {
 	view_mat = glm::rotate(view_mat, -cam.rot.x, glm::vec3(1.0f, 0.0f, 0.0f));
 	view_mat = glm::rotate(view_mat, -cam.rot.y, glm::vec3(0.0f, 1.0f, 0.0f));
 	view_mat = glm::rotate(view_mat, -90.0f, glm::vec3(1.0f, 0.0f, 0.0f));
-
 
 	if (use_caster_view) view_mat = caster_view_mat;
 
@@ -437,7 +440,7 @@ void Renderer::render() {
 	// draw terrain for shadowcasting
 	glBindVertexArray(terrain_vao);
 	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-	glDrawArrays(GL_TRIANGLES, 0, terrain->getTerrainMesh()->getPolyCount() * 9);
+	glDrawArrays(GL_TRIANGLES, 0, terrain_vao_length);
 
 	glEnable(GL_CULL_FACE);
 	//	glCullFace(GL_BACK);
@@ -469,11 +472,6 @@ void Renderer::render() {
 	glDepthMask(GL_TRUE);
 	glEnable(GL_CULL_FACE);
 
-	//send shadow map uniform
-	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_2D, fb_tex_depth);
-	glUniform1i(shadow_map_location, 0);
-
 	glUseProgram(0);
 
 
@@ -489,21 +487,46 @@ void Renderer::render() {
 	glUniform3fv(terrain_sun_direction, 1, glm::value_ptr(sun_direction));
 	glUniform1f(terrain_time_location, static_cast<float>(glfwGetTime()));
 
-	glBindVertexArray(terrain_vao);
 
-	//flag to not use water shading
-	glUniform1i(terrain_waterflag_location, 0);
+	//send shadow map uniform
+	glActiveTexture(GL_TEXTURE7);
+	glBindTexture(GL_TEXTURE_2D, fb_tex_depth);
 
 	glPolygonMode(GL_FRONT_AND_BACK, wireframe ? GL_LINE : GL_FILL);
 
-
 	if (use_tessellation) {
 		glPatchParameteri(GL_PATCH_VERTICES, 3);
-		glDrawArrays(GL_PATCHES, 0, terrain->getTerrainMesh()->getPolyCount() * 9);
 	}
-	else {
-		glDrawArrays(GL_TRIANGLES, 0, terrain->getTerrainMesh()->getPolyCount() * 9);
-	}
+
+	//flag to use terrain shading
+	glUniform1i(terrain_waterflag_location, 0);
+
+	glBindVertexArray(terrain_vao);
+	glDrawArrays(use_tessellation ? GL_PATCHES : GL_TRIANGLES, 0, terrain_vao_length);
+
+	glBindVertexArray(0);
+
+	//------------- forest -------------
+
+
+	glUseProgram(forest_shader);
+
+	glUniformMatrix4fv(forest_view_location, 1, GL_FALSE, glm::value_ptr(view_mat));
+	glUniformMatrix4fv(forest_model_location, 1, GL_FALSE, glm::value_ptr(model_mat));
+
+	glBindVertexArray(trees_far_vao);
+
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, tree_test_tex);
+
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+	glDisable(GL_CULL_FACE);
+	glDrawArrays(GL_POINTS, 0, trees_far_vao_length);
+	glEnable(GL_CULL_FACE);
+
+	glDisable(GL_BLEND);
 
 	glUseProgram(0);
 
@@ -523,12 +546,16 @@ void Renderer::render() {
 	glActiveTexture(GL_TEXTURE1);
 	glBindTexture(GL_TEXTURE_2D, water_disp_tex);
 
+	//send shadow map uniform
+	glActiveTexture(GL_TEXTURE7);
+	glBindTexture(GL_TEXTURE_2D, fb_tex_depth);
+
 	if (use_tessellation) {
 		glPatchParameteri(GL_PATCH_VERTICES, 3);
-		glDrawArrays(GL_PATCHES, 0, terrain->getTerrainMesh()->getWaterBufferSize());
+		glDrawArrays(GL_PATCHES, 0, water_vao_length);
 	}
 	else {
-		glDrawArrays(GL_TRIANGLES, 0, terrain->getTerrainMesh()->getWaterBufferSize());
+		glDrawArrays(GL_TRIANGLES, 0, water_vao_length);
 	}
 
 	//reset polygon mode
@@ -583,14 +610,20 @@ void  Renderer::initTerrain() {
 	model_mat_location = glGetUniformLocation(terrain_shader, "model_mat");
 	view_mat_location = glGetUniformLocation(terrain_shader, "view_mat");
 	proj_mat_location = glGetUniformLocation(terrain_shader, "projection_mat");
+
 	terrain_sun_direction = glGetUniformLocation(terrain_shader, "sun_direction");
 	terrain_caster_view_location = glGetUniformLocation(terrain_shader, "caster_view");
 	terrain_caster_proj_location = glGetUniformLocation(terrain_shader, "caster_proj");
 	terrain_caster_model_location = glGetUniformLocation(terrain_shader, "caster_model");
 	terrain_time_location = glGetUniformLocation(terrain_shader, "time");
 
+	forest_proj_location = glGetUniformLocation(forest_shader, "projection_mat");
+	forest_view_location = glGetUniformLocation(forest_shader, "view_mat");
+	forest_model_location = glGetUniformLocation(forest_shader, "model_mat");
+
+
 	//set waterflag
-	terrain_waterflag_location = glGetUniformLocation(terrain_shader, "water");
+	terrain_waterflag_location = glGetUniformLocation(terrain_shader, "type");
 }
 
 void Renderer::initShadowMap() {
@@ -646,7 +679,6 @@ void Renderer::initShadowMap() {
 	depth_view_location = glGetUniformLocation(shadow_shader, "V");
 	depth_proj_location = glGetUniformLocation(shadow_shader, "P");
 	depth_model_location = glGetUniformLocation(shadow_shader, "M");
-	shadow_map_location = glGetUniformLocation(shadow_shader, "shadow_map");
 
 } 
 
@@ -812,59 +844,69 @@ void Renderer::updateControls() {
 }
 
 void Renderer::buildTerrainBuffers() {
+
 //	printf("[REN] Building terrain buffers. \n\tTerrain polycount: %i\n", terrain->getTerrainMesh()->getPolyCount());
 
-	//terrain buffers
-	GLuint points_vbo = 0;
-	glGenBuffers(1, &points_vbo);
-	glBindBuffer(GL_ARRAY_BUFFER, points_vbo);
-	glBufferData(GL_ARRAY_BUFFER, terrain->getTerrainMesh()->getPolyCount() * 9 * sizeof(float), terrain->getTerrainMesh()->getTerrainVertexBuffer(), GL_STATIC_DRAW);
 
-	GLuint normals_vbo = 0;
-	glGenBuffers(1, &normals_vbo);
-	glBindBuffer(GL_ARRAY_BUFFER, normals_vbo);
-	glBufferData(GL_ARRAY_BUFFER, terrain->getTerrainMesh()->getPolyCount() * 9 * sizeof(float), terrain->getTerrainMesh()->getTerrainNormalBuffer(), GL_STATIC_DRAW);
+	GLuint points_vbo, normals_vbo, texcoords_vbo, colors_vbo;
+	GLuint vao;
 
-	GLuint vao = 0;
-	glGenVertexArrays(1, &vao);
-	glBindVertexArray(vao);
-	glEnableVertexAttribArray(0);
-	glBindBuffer(GL_ARRAY_BUFFER, points_vbo);
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, NULL);
-	glBindBuffer(GL_ARRAY_BUFFER, normals_vbo);
-	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, NULL);
 
-	glEnableVertexAttribArray(0);
-	glEnableVertexAttribArray(1);
+	//--------------------------------- TERRAIN VAO ---------------------------------
 
-	terrain_vao = vao;
-
-	//water buffers
 	points_vbo = 0;
 	glGenBuffers(1, &points_vbo);
 	glBindBuffer(GL_ARRAY_BUFFER, points_vbo);
-	glBufferData(GL_ARRAY_BUFFER, terrain->getTerrainMesh()->getWaterBufferSize() * sizeof(float), terrain->getTerrainMesh()->getWaterVertexBuffer(), GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, terrain->terrain_buf.vert.size, terrain->terrain_buf.vert.data, GL_STATIC_DRAW);
 
 	normals_vbo = 0;
 	glGenBuffers(1, &normals_vbo);
 	glBindBuffer(GL_ARRAY_BUFFER, normals_vbo);
-	glBufferData(GL_ARRAY_BUFFER, terrain->getTerrainMesh()->getWaterBufferSize() * sizeof(float), terrain->getTerrainMesh()->getWaterNormalBuffer(), GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, terrain->terrain_buf.norm.size, terrain->terrain_buf.norm.data, GL_STATIC_DRAW);
 
-	GLuint texcoord_vbo = 0;
-	glGenBuffers(1, &texcoord_vbo);
-	glBindBuffer(GL_ARRAY_BUFFER, texcoord_vbo);
-	glBufferData(GL_ARRAY_BUFFER, terrain->getTerrainMesh()->getWaterBufferSize() / 3 * 2 * sizeof(float), terrain->getTerrainMesh()->getWaterTexcoordBuffer(), GL_STATIC_DRAW);
+	vao = 0;
+	glGenVertexArrays(1, &vao);
+	glBindVertexArray(vao);
+	glEnableVertexAttribArray(0);
+	glBindBuffer(GL_ARRAY_BUFFER, points_vbo);
+	glVertexAttribPointer(0, terrain->terrain_buf.vert.step, GL_FLOAT, GL_FALSE, 0, NULL);
+	glBindBuffer(GL_ARRAY_BUFFER, normals_vbo);
+	glVertexAttribPointer(1, terrain->terrain_buf.norm.step, GL_FLOAT, GL_FALSE, 0, NULL);
+
+	glEnableVertexAttribArray(0);
+	glEnableVertexAttribArray(1);
+
+	terrain_vao = vao; 
+	terrain_vao_length = terrain->terrain_buf.length;
+
+
+	//--------------------------------- WATER VAO ---------------------------------
+
+	points_vbo = 0;
+	glGenBuffers(1, &points_vbo);
+	glBindBuffer(GL_ARRAY_BUFFER, points_vbo);
+	glBufferData(GL_ARRAY_BUFFER, terrain->water_buf.vert.size, terrain->water_buf.vert.data, GL_STATIC_DRAW);
+
+	normals_vbo = 0;
+	glGenBuffers(1, &normals_vbo);
+	glBindBuffer(GL_ARRAY_BUFFER, normals_vbo);
+	glBufferData(GL_ARRAY_BUFFER, terrain->water_buf.norm.size, terrain->water_buf.norm.data, GL_STATIC_DRAW);
+
+	texcoords_vbo = 0;
+	glGenBuffers(1, &texcoords_vbo);
+	glBindBuffer(GL_ARRAY_BUFFER, texcoords_vbo);
+	glBufferData(GL_ARRAY_BUFFER, terrain->water_buf.texcoord.size, terrain->water_buf.texcoord.data, GL_STATIC_DRAW);
 
 	vao = 0;
 	glGenVertexArrays(1, &vao);
 	glBindVertexArray(vao);
 
 	glBindBuffer(GL_ARRAY_BUFFER, points_vbo);
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, NULL);
+	glVertexAttribPointer(0, terrain->water_buf.vert.step, GL_FLOAT, GL_FALSE, 0, NULL);
 	glBindBuffer(GL_ARRAY_BUFFER, normals_vbo);
-	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, NULL);
-	glBindBuffer(GL_ARRAY_BUFFER, texcoord_vbo);
-	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 0, (GLubyte*)NULL);
+	glVertexAttribPointer(1, terrain->water_buf.norm.step, GL_FLOAT, GL_FALSE, 0, NULL);
+	glBindBuffer(GL_ARRAY_BUFFER, texcoords_vbo);
+	glVertexAttribPointer(2, terrain->water_buf.texcoord.step, GL_FLOAT, GL_FALSE, 0, (GLubyte*)NULL);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 
 	glEnableVertexAttribArray(0);
@@ -872,9 +914,34 @@ void Renderer::buildTerrainBuffers() {
 	glEnableVertexAttribArray(2);
 
 	water_vao = vao;
+	water_vao_length = terrain->water_buf.length;
+
+
+	//--------------------------------- TREES FAR VAO ---------------------------------
+
+	points_vbo = 0;
+	glGenBuffers(1, &points_vbo);
+	glBindBuffer(GL_ARRAY_BUFFER, points_vbo);
+	glBufferData(GL_ARRAY_BUFFER, terrain->trees_far_buf.vert.size, terrain->trees_far_buf.vert.data, GL_STATIC_DRAW);
+
+	vao = 0;
+	glGenVertexArrays(1, &vao);
+	glBindVertexArray(vao);
+
+	glBindBuffer(GL_ARRAY_BUFFER, points_vbo);
+	glVertexAttribPointer(0, terrain->trees_far_buf.vert.step, GL_FLOAT, GL_FALSE, 0, NULL);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+	glEnableVertexAttribArray(0);
+
+	trees_far_vao = vao;
+	trees_far_vao_length = terrain->trees_far_buf.length;
+
 }
 
+
 GLuint Renderer::loadShaderProgram(char* vs_name, char* fs_name) {
+
 	std::string vs_path = std::string("./Shader/");
 	vs_path.append(vs_name);
 	vs_path.append(".glsl");
@@ -896,7 +963,40 @@ GLuint Renderer::loadShaderProgram(char* vs_name, char* fs_name) {
 	return shader_program;
 }
 
+
+GLuint Renderer::loadShaderProgram(char* vs_name, char* gs_name, char* fs_name) {
+
+	std::string vs_path = std::string("./Shader/");
+	vs_path.append(vs_name);
+	vs_path.append(".glsl");
+
+	std::string gs_path = std::string("./Shader/");
+	gs_path.append(gs_name);
+	gs_path.append(".glsl");
+
+	std::string fs_path = std::string("./Shader/");
+	fs_path.append(fs_name);
+	fs_path.append(".glsl");
+
+	Shader* vs = new Shader(vs_path.c_str(), GL_VERTEX_SHADER);
+	Shader* gs = new Shader(gs_path.c_str(), GL_GEOMETRY_SHADER);
+	Shader* fs = new Shader(fs_path.c_str(), GL_FRAGMENT_SHADER);
+	vs->compile();
+	gs->compile();
+	fs->compile();
+
+	GLuint shader_program = glCreateProgram();
+	glAttachShader(shader_program, vs->getIndex());
+	glAttachShader(shader_program, gs->getIndex());
+	glAttachShader(shader_program, fs->getIndex());
+	glLinkProgram(shader_program);
+	is_valid(shader_program);
+	return shader_program;
+}
+
+
 GLuint Renderer::loadShaderProgram(char* vs_name, char* tc_name, char* te_name, char* fs_name) {
+
 	std::string vs_path = std::string("./Shader/");
 	vs_path.append(vs_name);
 	vs_path.append(".glsl");
@@ -932,6 +1032,7 @@ GLuint Renderer::loadShaderProgram(char* vs_name, char* tc_name, char* te_name, 
 	return shader_program;
 }
 
+
 void Renderer::initCamera() {
 
 	cam.speed = 20.0f;
@@ -942,7 +1043,7 @@ void Renderer::initCamera() {
 	cam.rot.y = 0.0f;
 
 	//input variables
-	float near = 0.01f; //clipping plane
+	float near = 0.1f; //clipping plane
 	float far = 800.0f; //clipping plane
 	float fov = 67.0f * ONE_DEG_IN_RAD; //67 radians
 	float aspect = (float)g_gl_width / (float)g_gl_height;
@@ -975,10 +1076,12 @@ void Renderer::initCamera() {
 	glUseProgram(sky_shader);
 	glUniformMatrix4fv(sky_proj_mat, 1, GL_FALSE, proj_mat);
 
-
 	// terrain uniforms
 	glUseProgram(terrain_shader);
 	glUniformMatrix4fv(proj_mat_location, 1, GL_FALSE, proj_mat);
+
+	glUseProgram(forest_shader);
+	glUniformMatrix4fv(forest_proj_location, 1, GL_FALSE, proj_mat);
 
 	glUseProgram(0);
 }

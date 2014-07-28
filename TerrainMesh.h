@@ -1,4 +1,5 @@
-#pragma once
+#ifndef TERRAIN_MESH_H
+#define TERRAIN_MESH_H
 
 #include <vector>
 #include <set>
@@ -12,8 +13,6 @@
 
 #define MAX_POLY_PER_VERTEX 16
 
-//preliminary declaration
-struct Tri;
 
 struct Point {
 
@@ -22,6 +21,9 @@ struct Point {
 
 	//normal
 	glm::vec3 norm;
+
+	//texcoord
+	glm::vec2 texcoord;
 
 	//indices of tris that use this point
 	int users[MAX_POLY_PER_VERTEX];
@@ -44,6 +46,9 @@ struct Trif : Tri {
 
 struct Chunk {
 
+	//unique id
+	unsigned int id;
+
 	//level of detail
 	unsigned int lod;
 
@@ -53,8 +58,11 @@ struct Chunk {
 	//flag indicating if chunk is to be deleted
 	bool deleting = false;
 
+	//indicate if chunk is to be regenerated
+	bool regenerating = false;
+
 	//flags indicating if chunk should contain water
-	bool water = false, water_edge = false;
+	bool water = false, water_edge = false, land = false;
 
 	//position of bottom left corner
 	glm::vec2 origin;
@@ -100,23 +108,7 @@ public:
 	unsigned int getLOD(Chunk*);
 	unsigned int getPolyCount();
 	unsigned int getWaterBufferSize();
-	unsigned int getChunkCount();
 	float getTerrainDisplacement(glm::vec2);
-	Chunk* getChunkAt(int, int);
-
-	glm::ivec2 getChunkPos();
-
-	bool containsChunkAt(int, int);
-
-	//status flags
-//	bool flag_updating = false;
-//	bool flag_generating = false;
-//	bool flag_updated = true;
-//	bool flag_bufready = true;
-
-	//control flags
-//	bool flag_force_update = false;
-//	bool flag_force_facenormals = false;
 
 	int chunk_dist = 12;
 
@@ -137,18 +129,10 @@ private:
 	float* water_normal_buffer;
 	float* water_texcoord_buffer;
 
-//	std::vector<Chunk*> chunks;
+	unsigned int cur_id = 1;
+
 	std::vector<Tri> tris;
 	std::vector<glm::ivec2> chunk_gen_queue;
-
-	//LOD controller
-	int lod_count;
-
-	//Determines which LOD to use at distance.
-	//1: near
-	//2: med
-	//3: far
-	unsigned int dist_div = 2;
 
 	//stores amount of polygons during re-generation procedures.
 	unsigned int polycount = 0;
@@ -186,3 +170,5 @@ private:
 
 	noise::module::ScaleBias samplerScale;
 };
+
+#endif

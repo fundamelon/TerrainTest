@@ -9,7 +9,7 @@ in vec3 worldpos_tc_in[];
  
 uniform float tessLevelInner = 2.0;
 uniform float tessLevelOuter = 2.0;
-uniform int water;
+uniform int type;
 
 out vec3 position_te_in[];
 out vec3 normal_te_in[];
@@ -31,15 +31,15 @@ void main () {
 
 	float tess_level = get_tess_level();
 
-	if(water == 0) {
-		gl_TessLevelInner[0] = 1;
-		gl_TessLevelOuter[0] = 1;
-		gl_TessLevelOuter[1] = 1;
-		gl_TessLevelOuter[2] = 1;
-	} else if(water == 1) {
+	if(type == 1) {
 		gl_TessLevelInner[0] = tess_level;
 		gl_TessLevelOuter[0] = tess_level;
 		gl_TessLevelOuter[1] = tess_level;
 		gl_TessLevelOuter[2] = tess_level;
-	}
+	} else {
+		gl_TessLevelInner[0] = 1;
+		gl_TessLevelOuter[0] = 1;
+		gl_TessLevelOuter[1] = 1;
+		gl_TessLevelOuter[2] = 1;
+	} 
 }	

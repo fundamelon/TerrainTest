@@ -14,6 +14,7 @@ vec3 zenithDayColor = vec3(0.3, 0.4, 1.0);
 vec3 horizonNightColor = vec3(0.1, 0.1, 0.1);
 vec3 zenithNightColor = vec3(0, 0, 0.1);
 
+
 void main() {
 	vec3 dir = normalize(position_world);
 

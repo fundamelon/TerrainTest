@@ -11,9 +11,6 @@ struct Tree {
 
 	//ID of texture to use (0-2)
 	unsigned int tex_id;
-
-	//quad for texture
-	Tri* quad[2];
 };
 
 class TerrainFoliage {
@@ -22,20 +19,22 @@ public:
 	TerrainFoliage();
 	~TerrainFoliage();
 
-	void init(std::vector<Chunk*> chunks);
-
 	void update();
 
 	void generate();
 
+	void clear();
+
 	void genBuffers();
 	void clearBuffers();
 
-	struct buffer {
-		unsigned int length;
-		unsigned int datasize;
-		float* data;
-	} vertex_buffer, normal_buffer, texcoord_buffer;
+	unsigned int getTreesFarBufferSize();
+
+	struct {
+		unsigned int size = 0;
+		unsigned int step = 0;
+		float* data = NULL;
+	} vertex_buffer;
 
 
 private:

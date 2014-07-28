@@ -9,6 +9,8 @@ std::vector<Chunk*> chunks;
 unsigned int flags = FLAG_UPDATED | FLAG_BUFREADY;
 int seed = 0;
 glm::ivec2 chunkPos;
+int lod_count;
+unsigned int dist_div = 2;
 
 
 Terrain::Terrain() {
@@ -52,22 +54,67 @@ void Terrain::update(glm::vec2 pos) {
 
 void Terrain::regen() {
 
-//	flag_updating = true;
+	// flag that updating and generating have begun
 	flags |= FLAG_UPDATING;
+	flags |= FLAG_GENERATING;
 
-//	flag_bufready = false;
+	// flag that buffers are not ready
 	flags &= ~FLAG_BUFREADY;
 
 	mesh->updateChunks();
 	mesh->triangulate();
 
+	foliage->generate();
+
+	// flag that generation has finished
+	flags &= ~FLAG_GENERATING;
+
+
 	mesh->genTerrainBuffers();
 	mesh->genWaterBuffers();
 
-//	flag_updating = false;
+	foliage->genBuffers();
+
+	//-------------------- TERRAIN BUFFER --------------------
+
+	terrain_buf.length = mesh->getPolyCount() * 9; // 9 values per tri
+
+	terrain_buf.vert.data = mesh->getTerrainVertexBuffer();
+	terrain_buf.vert.size = terrain_buf.length * sizeof(float); // size is length times float bytes
+	terrain_buf.vert.step = 3;
+
+	terrain_buf.norm.data = mesh->getTerrainNormalBuffer();
+	terrain_buf.norm.size = terrain_buf.length * sizeof(float); // size is length times float bytes
+	terrain_buf.norm.step = 3;
+
+	//-------------------- WATER BUFFER --------------------
+
+	water_buf.length = mesh->getWaterBufferSize();
+
+	water_buf.vert.data = mesh->getWaterVertexBuffer();
+	water_buf.vert.size = water_buf.length * sizeof(float);
+	water_buf.vert.step = 3;
+
+	water_buf.norm.data = mesh->getWaterNormalBuffer();
+	water_buf.norm.size = water_buf.length * sizeof(float);
+	water_buf.norm.step = 3;
+
+	water_buf.texcoord.data = mesh->getWaterTexcoordBuffer();
+	water_buf.texcoord.size = water_buf.length / 3 * 2 * sizeof(float); // 2 per vertex
+	water_buf.texcoord.step = 2;
+
+	//-------------------- TREES LOW LOD BUFFER --------------------
+
+	trees_far_buf.length = foliage->getTreesFarBufferSize();
+
+	trees_far_buf.vert.data = foliage->vertex_buffer.data;
+	trees_far_buf.vert.size = trees_far_buf.length * sizeof(float);
+	trees_far_buf.vert.step = 3;
+
+	// flag that updating has finished
 	flags &= ~FLAG_UPDATING;
 
-//	flag_bufready = true;
+	// flag that buffers are ready
 	flags |= FLAG_BUFREADY;
 }
 
@@ -134,8 +181,19 @@ bool containsChunkAt(int xi, int yi) {
 Chunk* getChunkAt(int xi, int yi) {
 
 	for (unsigned int i = 0; i < chunks.size(); i++)
-	if (chunks.at(i)->addr.x == xi && chunks.at(i)->addr.y == yi)
-		return chunks.at(i);
+		if (chunks.at(i)->addr.x == xi && chunks.at(i)->addr.y == yi)
+			return chunks.at(i);
+
+	return NULL;
+}
+
+
+Chunk* getChunkByID(unsigned int id) {
+
+	for (unsigned int i = 0; i < chunks.size(); i++) 
+		if (chunks.at(i)->id == id) 
+			return chunks.at(i);
+	
 	return NULL;
 }
 
@@ -149,4 +207,9 @@ unsigned int getChunkCount() {
 float getChunkSpacing() { 
 	
 	return GRID_SIZE * GRID_SPACING; 
+}
+
+glm::ivec2 Terrain::getChunkPos() {
+
+	return chunkPos;
 }

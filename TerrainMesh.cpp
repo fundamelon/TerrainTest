@@ -7,7 +7,7 @@ TerrainMesh::TerrainMesh() {
 
 	printf("[TER] Initializing terrain...\n");
 
-	lod_count = log2(GRID_SIZE) + 1;
+	lod_count = (int)log2(GRID_SIZE) + 1;
 
 	//-------------------- TERRAIN PARAMETERS --------------------
 
@@ -70,7 +70,7 @@ TerrainMesh::TerrainMesh() {
 	//final
 	finalTerrain.SetSourceModule(0, terrainLargeVariationAdder);
 	finalTerrain.SetFrequency(1.0);
-	finalTerrain.SetPower(0);
+	finalTerrain.SetPower(0); 
 
 	samplerScale.SetSourceModule(0, finalTerrain);
 	samplerScale.SetScale(heightmap_scale_value);
@@ -112,9 +112,10 @@ float TerrainMesh::getTerrainDisplacement(glm::vec2 pos) {
 }
 
 
-void TerrainMesh::generateChunk(int x, int y, int lod) {
+void TerrainMesh::generateChunk(int x, int y, int id) {
 
 	Chunk* c = new Chunk();
+	c->id = id;
 	c->addr.x = x;
 	c->addr.y = y;
 //	printf("[TER] Generating chunk at <%i, %i> (LOD = %i)\n", x, y, getLOD(c));
@@ -124,8 +125,6 @@ void TerrainMesh::generateChunk(int x, int y, int lod) {
 
 	unsigned int vert_i = 0; // vertex index
 
-	float horizontal_scale = 0.007f;
-	float vertical_scale = 6.0f;
 //	float vertical_scale = 20.0f;
 	int lod_mul = (int)pow(2, c->lod);
 
@@ -165,14 +164,11 @@ void TerrainMesh::generateChunk(int x, int y, int lod) {
 				y *= GRID_SIZE / lod_mul;
 
 				float disp = c->heightmap.GetValue((int)(x), (int)(y));
-			//	float disp = image.GetValue((int)(x), (int)(y)).red / 256.0f;
 
-			//	c->points[vert_i].vert.z = (terrain_disp + getTerrainDisplacement(glm::vec2(x, y)))*vertical_scale; // z
-				c->points[vert_i].vert.z = (disp - heightmap_bias_value) * vertical_scale * 1 / heightmap_scale_value;
+				c->points[vert_i].vert.z = disp * vertical_scale;
+
 				if (c->points[vert_i].vert.z <= water_height) c->water = true;
-
-			//	if (disph < 0 || disph > 1) printf("ERROR: Displacement exceeded heightmap limit: %f\n", disph);
-			//	printf("%f, %f, %f\n", x, y, disp);
+				else c->land = true;
 
 				for (int i = 0; i < MAX_POLY_PER_VERTEX; i++)
 					c->points[vert_i].users[i] = -1;
@@ -234,12 +230,12 @@ void TerrainMesh::updateChunks() {
 	}
 //	printf("[TER]\tChunks to generate: %i\n\tChunks to delete: %i\n", chunk_gen_queue.size(), deleting_count);
 
-	for (int i = 0; i < chunks.size(); i++) {
+	for (unsigned int i = 0; i < chunks.size(); i++) {
 		Chunk* c = chunks.at(i);
 		if (c->lod != getLOD(c) && !c->deleting) {
 			//if LOD changed, and chunk isn't modified, regenerate this chunk
-			c->deleting = true;
-			chunk_gen_queue.push_back(c->addr);
+			c->deleting = false;
+			c->regenerating = true;
 		}
 
 		c->lod = getLOD(c);
@@ -248,7 +244,7 @@ void TerrainMesh::updateChunks() {
 	if (chunk_gen_queue.size() == 0 && deleting_count == 0) return;
 
 	
-	//delete chunks in del queue
+	//delete flagged chunks, regenerate flagged chunks
 	for (unsigned int i = 0; i < chunks.size(); i++) {
 		if (chunks.at(i)->deleting) {
 			//TODO: Fix memory leaking
@@ -260,12 +256,26 @@ void TerrainMesh::updateChunks() {
 			chunks.erase(chunks.begin() + i);
 			i--;
 		}
+		else if (chunks.at(i)->regenerating) {
+			unsigned int temp_id = chunks.at(i)->id;
+			int temp_x = chunks.at(i)->addr.x;
+			int temp_y = chunks.at(i)->addr.y;
+
+			delete[] chunks.at(i)->points;
+			delete chunks.at(i);
+			chunks.erase(chunks.begin() + i);
+
+			generateChunk(temp_x, temp_y, temp_id);
+			i--;
+		}
 	}
 	
 	//generate chunks in gen queue
 	for (unsigned int gi = 0; gi < chunk_gen_queue.size(); gi++) {
-		if (!containsChunkAt(chunk_gen_queue.at(gi).x, chunk_gen_queue.at(gi).y))
-			generateChunk(chunk_gen_queue.at(gi).x, chunk_gen_queue.at(gi).y, 1);
+		if (!containsChunkAt(chunk_gen_queue.at(gi).x, chunk_gen_queue.at(gi).y)) {
+			generateChunk(chunk_gen_queue.at(gi).x, chunk_gen_queue.at(gi).y, cur_id);
+			cur_id++;
+		}
 	}
 	chunk_gen_queue.clear();
 }
@@ -278,7 +288,7 @@ void TerrainMesh::triangulate() {
 
 	tris.clear();
 	//create LOD meshes for each level, except maximum.
-	for (int i = 0; i < chunks.size(); i++) {
+	for (unsigned int i = 0; i < chunks.size(); i++) {
 		Chunk* c = chunks.at(i);
 
 		//TODO: more elegant solution?
@@ -288,7 +298,7 @@ void TerrainMesh::triangulate() {
 		Chunk* neighbor_left = getChunkAt(c->addr.x - 1, c->addr.y);
 		Chunk* neighbor_bottom = getChunkAt(c->addr.x, c->addr.y - 1);
 
-		int lod_mul = pow(2, c->lod);
+		int lod_mul = (int)pow(2, c->lod);
 
 		for (unsigned int j = 0; j < GRID_SIZE * GRID_SIZE; j++) {
 			for (int k = 0; k < 8; k++) {
@@ -296,8 +306,8 @@ void TerrainMesh::triangulate() {
 			}
 		}
 
-		for (unsigned int row = 0; row <= GRID_SIZE - lod_mul; row += lod_mul) {
-			for (unsigned int col = 0; col <= GRID_SIZE - lod_mul; col += lod_mul) {
+		for (int row = 0; row <= GRID_SIZE - lod_mul; row += lod_mul) {
+			for (int col = 0; col <= GRID_SIZE - lod_mul; col += lod_mul) {
 				int prev_size = tris.size();
 
 				bool top = row == GRID_SIZE - lod_mul;
@@ -616,7 +626,7 @@ void TerrainMesh::triangulate() {
 				}
 				
 				//compute each new tri's normal and add new tris to adjacency list
-				for (int i = prev_size; i < tris.size(); i++) {
+				for (unsigned int i = prev_size; i < tris.size(); i++) {
 					glm::vec3 a = glm::vec3(
 						tris.at(i).points[1]->vert.x - tris.at(i).points[0]->vert.x,
 						tris.at(i).points[1]->vert.y - tris.at(i).points[0]->vert.y,
@@ -711,12 +721,12 @@ void TerrainMesh::genWaterBuffers() {
 
 	std::vector<Trif> water_tris;
 
-	for (int i = 0; i < chunks.size(); i++) {
+	for (unsigned int i = 0; i < chunks.size(); i++) {
 		if (!chunks.at(i)->water && !chunks.at(i)->water_edge) continue;
 
 		int dx = abs(chunkPos.x - chunks.at(i)->addr.x);
 		int dy = abs(chunkPos.y - chunks.at(i)->addr.y);
-		int dist = fmax(dx, dy);
+		int dist = (int)fmax(dx, dy);
 
 		unsigned int water_mesh_divs = dist <= 2 ? 8 : 1;
 
@@ -760,7 +770,9 @@ void TerrainMesh::genWaterBuffers() {
 	water_normal_buffer = new float[water_buffer_size];
 	water_texcoord_buffer = new float[water_buffer_size/3*2];
 
-	for (int i = 0; i < water_tris.size(); i++) {
+	for (unsigned int i = 0; i < water_tris.size(); i++) {
+
+		//for each triangle's points
 		for (int j = 0; j < 3; j++) {
 			water_vertex_buffer[i*9 + j*3 + 0] = water_tris.at(i).verts[j].x;
 			water_vertex_buffer[i*9 + j*3 + 1] = water_tris.at(i).verts[j].y;
@@ -799,29 +811,11 @@ void TerrainMesh::setSeed(int seed) {
 }
 
 
-bool TerrainMesh::containsChunkAt(int xi, int yi) {
-
-	for (int i = 0; i < chunks.size(); i++)
-		if (chunks.at(i)->addr.x == xi && chunks.at(i)->addr.y == yi)
-			return true;
-	return false;
-}
-
-
-Chunk* TerrainMesh::getChunkAt(int xi, int yi) {
-
-	for (int i = 0; i < chunks.size(); i++)
-	if (chunks.at(i)->addr.x == xi && chunks.at(i)->addr.y == yi)
-		return chunks.at(i);
-	return NULL;
-}
-
-
 unsigned int TerrainMesh::getPolyCount() {
 
 	//only calculate if chunks aren't being modified
 //	if (!flag_updating) {
-	if (!(flags & FLAG_UPDATING)) {
+	if (!(flags & FLAG_GENERATING)) {
 		polycount = tris.size();
 	}
 
@@ -833,22 +827,12 @@ unsigned int TerrainMesh::getLOD(Chunk* c) {
 
 	int dx = abs(chunkPos.x - c->addr.x) / dist_div - 1;
 	int dy = abs(chunkPos.y - c->addr.y) / dist_div - 1;
-	int d = fmax(dx, dy);
+	int d = (int)fmax(dx, dy);
 
-	if (dist_div == 1 && d >= 5 && d<=7) d = 4;
+	if (dist_div == 1 && d >= 5 && d <= 7) d = 4;
 
-	return fmax(0, fmin(lod_count - 1, d));
+	return (int)fmax(0, fmin(lod_count - 1, d));
 }
-
-
-glm::ivec2 TerrainMesh::getChunkPos() {
-
-	return chunkPos;
-}
-
-
-unsigned int TerrainMesh::getChunkCount() { return chunks.size(); }
-
 
 unsigned int TerrainMesh::getWaterBufferSize() { return water_buffer_size; }
 

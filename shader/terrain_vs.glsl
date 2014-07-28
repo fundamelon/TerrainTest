@@ -7,7 +7,7 @@ in layout (location = 2) vec2 vertex_texcoord;
 uniform mat4 projection_mat, view_mat, model_mat;
 uniform mat4 caster_proj, caster_view, caster_model;
 uniform float time;
-uniform int water;
+uniform int type;
 
 
 out vec3 position, normal, position_eye, normal_eye;

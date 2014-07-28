@@ -44,8 +44,9 @@ public:
 
 	void loadSkybox();
 	void loadFramebuffer();
-	GLuint loadShaderProgram(char*, char*);
-	GLuint loadShaderProgram(char*, char*, char*, char*);
+	GLuint loadShaderProgram(char*, char*); // vs, fs
+	GLuint loadShaderProgram(char*, char*, char*); // vs, gs, fs
+	GLuint loadShaderProgram(char*, char*, char*, char*); // vs, tc, te, fs
 	void loadTestTri();
 	void loadPostProcessShader();
 
@@ -97,8 +98,10 @@ private:
 	//textures
 	GLuint depth_texture;
 	GLuint water_disp_tex;
+	GLuint tree_test_tex;
 
 	//shader programs
+	GLuint default_shader;
 	GLuint post_process_shader;
 	GLuint terrain_shader;
 	GLuint sky_shader;
@@ -107,6 +110,9 @@ private:
 	GLuint water_shader;
 	GLuint tess_shader;
 	GLuint terrain_tess_shader;
+	GLuint forest_shader;
+
+	std::vector<GLuint> shader_programs;
 
 	//uniforms
 	GLuint view_mat_location;
@@ -117,22 +123,29 @@ private:
 	GLuint terrain_sun_direction;
 	GLuint sky_sun_direction;
 	GLuint fb_sampler_location;
-	GLuint shadow_map_location;
 	GLuint tex_location;
-	GLuint depth_view_location;
 	GLuint depth_proj_location;
+	GLuint depth_view_location;
 	GLuint depth_model_location;
-	GLuint terrain_caster_view_location;
 	GLuint terrain_caster_proj_location;
+	GLuint terrain_caster_view_location;
 	GLuint terrain_caster_model_location;
 	GLuint terrain_waterflag_location;
 	GLuint terrain_time_location;
+	GLuint forest_proj_location;
+	GLuint forest_view_location;
+	GLuint forest_model_location;
 
 	GLuint ss_quad_vao;
 	GLuint ss_corner_quad_vao;
 	GLuint skybox_vao;
 	GLuint terrain_vao;
 	GLuint water_vao;
+	GLuint trees_far_vao;
+
+	unsigned int terrain_vao_length = 0;
+	unsigned int water_vao_length = 0;
+	unsigned int trees_far_vao_length = 0;
 
 	Scene* cur_scene;
 	Terrain* terrain;
