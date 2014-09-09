@@ -29,9 +29,47 @@ extern glm::ivec2 chunkPos;
 static float horizontal_scale = 0.007f;
 static float vertical_scale = 6.0f;
 
+struct Point;
+struct Tree;
+class utils::NoiseMap;
 
-struct Chunk;
+struct Chunk {
 
+	//unique id
+	unsigned int id;
+
+	//level of detail
+	unsigned int lod;
+
+	//unique index
+	unsigned int index;
+
+	//flag indicating if chunk is to be deleted
+	bool deleting = false;
+
+	//indicate if chunk is to be regenerated
+	bool regenerating = false;
+
+	//flags indicating if chunk should contain water
+	bool water = false, water_edge = false, land = false;
+
+	bool foliage_loaded = false;
+	std::vector<Tree*> trees;
+
+	float water_height;
+
+	//position of bottom left corner
+	glm::vec2 origin;
+
+	//position in chunk coordinates
+	glm::ivec2 addr;
+
+	//chunk data
+	Point* points;
+
+	//heightmap data
+	utils::NoiseMap heightmap;
+};
 
 extern std::vector<Chunk*> chunks;
 
@@ -49,8 +87,5 @@ extern int lod_count;
 //2: med
 //3: far
 extern unsigned int dist_div;
-
-
-
 
 #endif

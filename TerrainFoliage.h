@@ -9,8 +9,10 @@ struct Tree {
 	//tree world position
 	glm::vec3 pos;
 
-	//ID of texture to use (0-2)
-	unsigned int tex_id;
+	float scale, angle;
+
+	// type of tree
+	int type;
 };
 
 class TerrainFoliage {
@@ -34,7 +36,7 @@ public:
 		unsigned int size = 0;
 		unsigned int step = 0;
 		float* data = NULL;
-	} vertex_buffer;
+	} vertex_buffer, scale_buffer, angle_buffer, type_buffer;
 
 
 private:

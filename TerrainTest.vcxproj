@@ -105,6 +105,7 @@
     <ClInclude Include="util.h" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="shader\billboard_gs.glsl" />
     <None Include="shader\fs.glsl" />
     <None Include="shader\phong_test_fs.glsl" />
     <None Include="shader\phong_test_vs.glsl" />

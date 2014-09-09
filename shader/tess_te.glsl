@@ -10,7 +10,7 @@ in vec2 texcoord_te_in[];
 
 // could use a displacement map here
  
-uniform mat4 projection_mat, view_mat, model_mat;
+uniform mat4 proj_mat, view_mat, model_mat;
 uniform mat4 caster_proj, caster_view, caster_model;
 uniform float time;
 uniform int type;
@@ -67,5 +67,5 @@ void main () {
 
 	normal_eye = vec3 (view_mat * model_mat * vec4 (normal, 0.0));
 
-	gl_Position = projection_mat * vec4 (position_eye, 1.0);
+	gl_Position = proj_mat * vec4 (position_eye, 1.0);
 }

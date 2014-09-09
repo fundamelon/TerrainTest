@@ -5,6 +5,7 @@
 #include "Terrain.h"
 
 void updateTerrainBuffers(Terrain* t) {
+
 	printf("Scheduling terrain update...\n");
 	double start_seconds = glfwGetTime();
 
@@ -14,7 +15,9 @@ void updateTerrainBuffers(Terrain* t) {
 	printf("Terrain generated in %f sec\n", end_seconds - start_seconds);
 }
 
+
 int main() {
+
 	Renderer* mainRenderer;
 	Terrain* mainTerrain;
 
@@ -22,6 +25,7 @@ int main() {
 	mainRenderer->init();
 
 	mainTerrain = new Terrain();
+	mainTerrain->init();
 
 	//TERRAIN SEED
 	mainTerrain->setSeed(233);
@@ -30,6 +34,7 @@ int main() {
 	mainRenderer->initTerrain();
 
 	mainRenderer->initCamera();
+	mainRenderer->cam.pos = glm::vec3((1 << 15) * mainTerrain->getGridSpacing(), (1 << 15) * mainTerrain->getGridSpacing(), 5);
 
 	// initialize terrain
 	printf("Initializing terrain...\n");
@@ -60,5 +65,6 @@ int main() {
 
 	//close GL context and any other GLFW resources
 	mainRenderer->terminate();
+
 	return 0;
 }

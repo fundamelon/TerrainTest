@@ -1,11 +1,15 @@
 #ifndef TERRAIN_H
 #define TERRAIN_H
 
+#include <vector>
 #include <glm/glm.hpp>
+#include <noise/noise.h>
+#include "thirdparty/noiseutils/noiseutils.h"
 
 class TerrainMesh;
 class TerrainFoliage;
 
+struct Chunk;
 
 struct Buffer {
 
@@ -17,8 +21,8 @@ struct Buffer {
 		unsigned int size = 0;
 		unsigned int step = 0;
 		float* data = NULL;
-	} vert, norm, texcoord, color;
-};
+	} vert, norm, texcoord, color, scale, angle, type;
+}; 
 
 
 class Terrain {
@@ -26,6 +30,8 @@ class Terrain {
 public:
 	Terrain();
 	~Terrain();
+
+	void init();
 
 	void update(glm::vec2);
 
@@ -37,8 +43,10 @@ public:
 	TerrainFoliage* getTerrainFoliage();
 
 	float getChunkSpacing();
+	float getGridSpacing();
 
 	glm::ivec2 getChunkPos();
+	unsigned int getLOD(Chunk*);
 
 	//CONTROL FUNCTIONS
 
@@ -51,6 +59,10 @@ public:
 	// Force an update during the next execution.
 	void forceUpdate();
 
+	// Chunk updates
+	void updateChunks();
+	void generateChunk(int, int, int);
+
 	// Needs updating.
 	bool updateRequested();
 
@@ -61,10 +73,53 @@ public:
 	Buffer water_far_buf;
 	Buffer trees_far_buf;
 
+	int chunk_dist = 12;
+
+	float terrain_disp = -1.0f;
+
+	float ocean_height = 0.0f;
+
+
+	std::vector<glm::ivec2> chunk_gen_queue;
+	unsigned int cur_id = 1;
+
 
 private:
 	TerrainMesh* mesh;
 	TerrainFoliage* foliage;
+
+	noise::module::Billow baseFlatTerrain;
+	noise::module::ScaleBias flatTerrain;
+
+	noise::module::RidgedMulti hillTerrain;
+	noise::module::Turbulence hillTurbulence;
+
+	noise::module::RidgedMulti baseMountainTerrain;
+	noise::module::Perlin baseFoothillTerrain;
+	noise::module::ScaleBias terrainTypeHillScaler;
+	noise::module::ScaleBias mountainTerrain;
+	noise::module::ScaleBias foothillTerrain;
+
+	noise::module::Perlin terrainTypeHill;
+	noise::module::Perlin terrainTypeMountain;
+	noise::module::Perlin terrainTypeFoothill;
+
+	noise::module::Perlin terrainLargeVariation;
+	noise::module::ScaleBias terrainLargeVariationScaler;
+	noise::module::Add terrainLargeVariationAdder;
+
+	noise::module::Select hillSelector;
+	noise::module::Add mountainAdder;
+	noise::module::Select mountainSelector;
+
+	noise::module::Perlin terrainSwirl;
+
+	noise::module::Turbulence finalTerrain;
+
+	noise::module::ScaleBias samplerScale;
+
+	float heightmap_scale_value = 1.0f;
+	float heightmap_bias_value = 0;
 };
 
 #endif

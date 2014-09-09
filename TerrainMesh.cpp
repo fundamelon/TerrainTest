@@ -8,95 +8,6 @@ TerrainMesh::TerrainMesh() {
 	printf("[TER] Initializing terrain...\n");
 
 	lod_count = (int)log2(GRID_SIZE) + 1;
-
-	//-------------------- TERRAIN PARAMETERS --------------------
-
-	//flat plains
-	baseFlatTerrain.SetFrequency(2.0);
-
-	flatTerrain.SetSourceModule(0, baseFlatTerrain);
-	flatTerrain.SetScale(0.125);
-	flatTerrain.SetBias(-0.75);
-
-	hillTerrain.SetFrequency(0.7);
-
-	//hill selector
-	terrainTypeHill.SetFrequency(0.2);
-	terrainTypeHill.SetPersistence(0.25);
-
-	//combine hills
-	hillSelector.SetSourceModule(0, flatTerrain);
-	hillSelector.SetSourceModule(1, hillTerrain);
-	hillSelector.SetControlModule(terrainTypeHill);
-	hillSelector.SetBounds(0.0, 1000.0);
-	hillSelector.SetEdgeFalloff(0.125);
-
-	hillTurbulence.SetSourceModule(0, hillSelector);
-	hillTurbulence.SetFrequency(2.0);
-	hillTurbulence.SetPower(0.125);
-
-	//mountains
-	baseMountainTerrain.SetFrequency(0.3f);
-//	baseMountainTerrain.SetLacunarity(1.2f);
-	mountainTerrain.SetSourceModule(0, baseMountainTerrain);
-	mountainTerrain.SetScale(7.0f);
-	mountainTerrain.SetBias(5.0f);
-
-	foothillTerrain.SetSourceModule(0, hillTerrain);
-
-	mountainAdder.SetSourceModule(0, foothillTerrain);
-	mountainAdder.SetSourceModule(1, mountainTerrain);
-
-	//mountain selector
-	terrainTypeMountain.SetFrequency(0.2f);
-	terrainTypeMountain.SetPersistence(0.005);
-	terrainTypeMountain.SetLacunarity(0.1);
-
-	//combine mountains
-	mountainSelector.SetSourceModule(0, hillTurbulence);
-	mountainSelector.SetSourceModule(1, mountainAdder);
-	mountainSelector.SetControlModule(terrainTypeMountain);
-	mountainSelector.SetBounds(-1.0, -0.4f);
-	mountainSelector.SetEdgeFalloff(0.6f);
-
-	//large sweeping terrain height variation
-	terrainLargeVariation.SetFrequency(0.03);
-	terrainLargeVariationScaler.SetSourceModule(0, terrainLargeVariation);
-	terrainLargeVariationScaler.SetScale(20.0);
-	terrainLargeVariationScaler.SetBias(terrain_disp);
-	terrainLargeVariationAdder.SetSourceModule(0, mountainSelector);
-	terrainLargeVariationAdder.SetSourceModule(1, terrainLargeVariationScaler);
-
-	//final
-	finalTerrain.SetSourceModule(0, terrainLargeVariationAdder);
-	finalTerrain.SetFrequency(1.0);
-	finalTerrain.SetPower(0); 
-
-	samplerScale.SetSourceModule(0, finalTerrain);
-	samplerScale.SetScale(heightmap_scale_value);
-	samplerScale.SetBias(heightmap_bias_value);
-
-
-	/*
-	utils::NoiseMap heightMap;
-	utils::NoiseMapBuilderPlane heightMapBuilder;
-	heightMapBuilder.SetSourceModule(finalTerrain);
-	heightMapBuilder.SetDestNoiseMap(heightMap);
-	heightMapBuilder.SetDestSize(1024, 1024);
-	heightMapBuilder.SetBounds(-50.0, 50.0, -50.0, 50.0);
-	heightMapBuilder.Build();
-
-	utils::RendererImage renderer;
-	utils::Image image;
-	renderer.SetSourceNoiseMap(heightMap);
-	renderer.SetDestImage(image);
-	renderer.Render();
-
-	utils::WriterBMP writer;
-	writer.SetSourceImage(image);
-	writer.SetDestFilename("overview.bmp");
-	writer.WriteDestFile();
-	*/
 }
 
 
@@ -108,176 +19,8 @@ TerrainMesh::~TerrainMesh() {
 
 float TerrainMesh::getTerrainDisplacement(glm::vec2 pos) {
 
-	return (float)finalTerrain.GetValue(pos.x * 0.01f, pos.y * 0.01f, 0.5);
-}
-
-
-void TerrainMesh::generateChunk(int x, int y, int id) {
-
-	Chunk* c = new Chunk();
-	c->id = id;
-	c->addr.x = x;
-	c->addr.y = y;
-//	printf("[TER] Generating chunk at <%i, %i> (LOD = %i)\n", x, y, getLOD(c));
-	c->origin = glm::vec2(getChunkSpacing() * c->addr.x - getChunkSpacing() / 2, getChunkSpacing() * c->addr.y - getChunkSpacing() / 2);
-	c->lod = getLOD(c);
-
-
-	unsigned int vert_i = 0; // vertex index
-
-//	float vertical_scale = 20.0f;
-	int lod_mul = (int)pow(2, c->lod);
-
-	
-	utils::NoiseMapBuilderPlane heightMapBuilder;
-	heightMapBuilder.SetSourceModule(samplerScale);
-	heightMapBuilder.SetDestNoiseMap(c->heightmap);
-	heightMapBuilder.SetDestSize(GRID_SIZE/lod_mul, GRID_SIZE/lod_mul);
-	heightMapBuilder.SetBounds(c->origin.x * horizontal_scale, (c->origin.x + getChunkSpacing()) * horizontal_scale, c->origin.y * horizontal_scale, (c->origin.y + getChunkSpacing()) * horizontal_scale);
-	heightMapBuilder.Build();
-
-	/*
-	utils::RendererImage renderer;
-	utils::Image image;
-	renderer.SetSourceNoiseMap(c->heightmap);
-	renderer.SetDestImage(image);
-	renderer.Render();
-	*/
-
-	c->points = new Point[GRID_SIZE * GRID_SIZE];
-	//iterate through grid
-	for (unsigned int row = 0; row < GRID_SIZE; row++) {
-		for (unsigned int col = 0; col < GRID_SIZE; col++) {
-			c->points[vert_i].vert.x = (col * GRID_SPACING) + c->origin.x; // x
-			c->points[vert_i].vert.y = (row * GRID_SPACING) + c->origin.y; // y
-
-			//only call displacement calculation if LOD will display it.
-			if (row % lod_mul != 0 || col % lod_mul != 0) {
-				c->points[vert_i].vert.z = 100;
-			} else {
-				float x = (c->points[vert_i].vert.x - c->origin.x);
-				float y = (c->points[vert_i].vert.y - c->origin.y);
-				x /= getChunkSpacing();
-				y /= getChunkSpacing();
-
-				x *= GRID_SIZE / lod_mul;
-				y *= GRID_SIZE / lod_mul;
-
-				float disp = c->heightmap.GetValue((int)(x), (int)(y));
-
-				c->points[vert_i].vert.z = disp * vertical_scale;
-
-				if (c->points[vert_i].vert.z <= water_height) c->water = true;
-				else c->land = true;
-
-				for (int i = 0; i < MAX_POLY_PER_VERTEX; i++)
-					c->points[vert_i].users[i] = -1;
-			}
-			//increment to next vertex
-			vert_i ++;
-		}
-	}
-
-	c->index = chunks.size();
-	/*
-	std::ostringstream s;
-	s << "chunk_" << c->index << ".bmp";
-
-	printf("Writing file %s...\n", s.str().c_str());
-
-	utils::WriterBMP writer;
-	writer.SetSourceImage(image);
-	writer.SetDestFilename(s.str().c_str());
-	writer.WriteDestFile();
-	*/
-	chunks.push_back(c);
-}
-
-
-void TerrainMesh::updateChunks() {
-
-	//mark out-of-range chunks for deletion
-	unsigned int deleting_count = 0;
-	for (unsigned int i = 0; i < chunks.size(); i++) {
-		Chunk* c = chunks.at(i);
-
-		if (abs(c->addr.x - chunkPos.x) > chunk_dist || abs(c->addr.y - chunkPos.y) > chunk_dist) {
-			c->deleting = true;
-			deleting_count++;
-		//	flag_updated = true;
-			flags |= FLAG_UPDATED;
-		} else {
-			//check all neighbor chunks and set water accordingly
-			for (int x = -1; x <= 1; x++)
-				for (int y = -1; y <= 1; y++)
-					if ((x != 0 || y != 0) && getChunkAt(c->addr.x + x, c->addr.y + y) != NULL && getChunkAt(c->addr.x + x, c->addr.y + y)->water) {
-						c->water_edge = true;
-					//	flag_updated = true;
-						flags |= FLAG_UPDATED;
-					}
-		}
-	}
-
-	//mark new chunks for generation
-	for (int xi = -chunk_dist; xi <= chunk_dist; xi++) {
-		for (int yi = -chunk_dist; yi <= chunk_dist; yi++) {
-			if (!containsChunkAt(xi + chunkPos.x, yi + chunkPos.y)) {
-				chunk_gen_queue.push_back(glm::ivec2(xi + chunkPos.x, yi + chunkPos.y));
-			//	flag_updated = true;
-				flags |= FLAG_UPDATED;
-			}
-		}
-	}
-//	printf("[TER]\tChunks to generate: %i\n\tChunks to delete: %i\n", chunk_gen_queue.size(), deleting_count);
-
-	for (unsigned int i = 0; i < chunks.size(); i++) {
-		Chunk* c = chunks.at(i);
-		if (c->lod != getLOD(c) && !c->deleting) {
-			//if LOD changed, and chunk isn't modified, regenerate this chunk
-			c->deleting = false;
-			c->regenerating = true;
-		}
-
-		c->lod = getLOD(c);
-	}
-
-	if (chunk_gen_queue.size() == 0 && deleting_count == 0) return;
-
-	
-	//delete flagged chunks, regenerate flagged chunks
-	for (unsigned int i = 0; i < chunks.size(); i++) {
-		if (chunks.at(i)->deleting) {
-			//TODO: Fix memory leaking
-
-		//	printf("[TER] Deleting chunk at <%i, %i>\n", chunks.at(i)->addr.x, chunks.at(i)->addr.y);
-
-			delete[] chunks.at(i)->points;
-			delete chunks.at(i);
-			chunks.erase(chunks.begin() + i);
-			i--;
-		}
-		else if (chunks.at(i)->regenerating) {
-			unsigned int temp_id = chunks.at(i)->id;
-			int temp_x = chunks.at(i)->addr.x;
-			int temp_y = chunks.at(i)->addr.y;
-
-			delete[] chunks.at(i)->points;
-			delete chunks.at(i);
-			chunks.erase(chunks.begin() + i);
-
-			generateChunk(temp_x, temp_y, temp_id);
-			i--;
-		}
-	}
-	
-	//generate chunks in gen queue
-	for (unsigned int gi = 0; gi < chunk_gen_queue.size(); gi++) {
-		if (!containsChunkAt(chunk_gen_queue.at(gi).x, chunk_gen_queue.at(gi).y)) {
-			generateChunk(chunk_gen_queue.at(gi).x, chunk_gen_queue.at(gi).y, cur_id);
-			cur_id++;
-		}
-	}
-	chunk_gen_queue.clear();
+//	return (float)finalTerrain.GetValue(pos.x * 0.01f, pos.y * 0.01f, 0.5);
+	return 0;
 }
 
 
@@ -730,7 +473,7 @@ void TerrainMesh::genWaterBuffers() {
 
 		unsigned int water_mesh_divs = dist <= 2 ? 8 : 1;
 
-		glm::vec3 origin = glm::vec3(chunks.at(i)->origin, water_height);
+		glm::vec3 origin = glm::vec3(chunks.at(i)->origin, chunks.at(i)->water_height);
 
 		for (unsigned int x = 0; x < water_mesh_divs; x++) {
 			for (unsigned int y = 0; y < water_mesh_divs; y++) {
@@ -789,28 +532,6 @@ void TerrainMesh::genWaterBuffers() {
 }
 
 
-void TerrainMesh::setSeed(int seed) {
-
-	//set seed of all noise modules
-	baseFlatTerrain.SetSeed(seed);
-	baseMountainTerrain.SetSeed(seed+1);
-	baseFoothillTerrain.SetSeed(seed+2);
-
-	hillTerrain.SetSeed(seed+3);
-	hillTurbulence.SetSeed(seed+4);
-
-	terrainTypeHill.SetSeed(seed+5);
-	terrainTypeMountain.SetSeed(seed+6);
-	terrainTypeFoothill.SetSeed(seed+7);
-
-	terrainLargeVariation.SetSeed(seed + 8);
-
-	terrainSwirl.SetSeed(seed+9);
-
-	finalTerrain.SetSeed(seed+10);
-}
-
-
 unsigned int TerrainMesh::getPolyCount() {
 
 	//only calculate if chunks aren't being modified
@@ -820,18 +541,6 @@ unsigned int TerrainMesh::getPolyCount() {
 	}
 
 	return polycount;
-}
-
-
-unsigned int TerrainMesh::getLOD(Chunk* c) {
-
-	int dx = abs(chunkPos.x - c->addr.x) / dist_div - 1;
-	int dy = abs(chunkPos.y - c->addr.y) / dist_div - 1;
-	int d = (int)fmax(dx, dy);
-
-	if (dist_div == 1 && d >= 5 && d <= 7) d = 4;
-
-	return (int)fmax(0, fmin(lod_count - 1, d));
 }
 
 unsigned int TerrainMesh::getWaterBufferSize() { return water_buffer_size; }

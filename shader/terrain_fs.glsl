@@ -4,6 +4,8 @@ in vec3 position, normal, position_eye, normal_eye;
 in vec2 texcoord;
 in vec4 shadow_coord;
 
+in float tree_dist;
+
 //layout (binding = 1) uniform sampler2D disp_tex;
 
 layout (binding = 0) uniform sampler2D tex0;
@@ -26,24 +28,21 @@ float dist = distance(vec3(0.0), position_eye);
 
 
 float eval_shadow () {
-//	return 1;
-	vec2 poisson_disk[4] = vec2[](
-	  vec2( -0.94201624, -0.39906216 ),
-	  vec2( 0.94558609, -0.76890725 ),
-	  vec2( -0.094184101, -0.92938870 ),
-	  vec2( 0.34495938, 0.29387760 )
-	);
 
-	const float epsilon = 0.003;
+	const float epsilon = 0.004;
+	const int width = 2;
+	const float div = 1.0/pow((width*2 + 1), 2);
 	
 	if(sun_direction.z < 0) return 0;
 
 	float factor = 1;
-	for (int i=0;i<4;i++) {
-	  if (texture(tex7, shadow_coord.xy + poisson_disk[i]/1000).z  <  shadow_coord.z-epsilon){
-		factor-=0.2;
+	for(int i=-width; i <= width; i++) {
+		for(int j = -width; j <= width; j++) {
+			 if (texture(tex7, vec2(shadow_coord.x + i/2000.0, shadow_coord.y + j/2000.0)).z  <  shadow_coord.z-epsilon)
+				factor -= div;
 	  }
 	}
+
 	return factor;
 }
 
@@ -63,6 +62,7 @@ vec4 terrain_color() {
 
 	vec3 gray = vec3(0.35, 0.35, 0.35);
 	
+	/*
 	//initial terrain coloring
 	float slope = max(dot(normal, vec3(0, 0, 1)), 0.0);
 	float t1 = smoothstep(0.8, 0.9, slope);
@@ -78,6 +78,9 @@ vec4 terrain_color() {
 		Kd = mix(vec3(0.2, 0.4, 0.5), Kd, smoothstep(-2, 0, position.z));
 		Kd = mix(vec3(0.2, 0.4, 0.4), Kd, smoothstep(-6, 0, position.z));
 	}
+	*/
+
+	Kd = green;
 
 	Ka = Kd * 0.3;
 
@@ -132,7 +135,20 @@ vec4 water_color() {
 
 vec4 tree_color() {
 
-	return texture(tex0, texcoord.st);
+	vec4 color;
+
+	color = texture(tex0, texcoord.st);
+//	color = vec4(0.0, 1.0, 0.0, 0.7);
+
+	if(color.a == 0) discard;
+
+	if(tree_dist > 200) {
+		color.a = mix(color.a, 0, (tree_dist - 200) / 100);
+	} else if(tree_dist < 60) {
+		color.a = mix(0, color.a, (tree_dist - 40) / 20);
+	}
+
+	return color;
 }
 
 
