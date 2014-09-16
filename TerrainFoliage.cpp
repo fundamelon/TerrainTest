@@ -25,9 +25,12 @@ void TerrainFoliage::generate() {
 
 		srand(seed + c->id);
 
-		for (unsigned int j = 0; j < 1024; j++) {
+		for (unsigned int j = 0; j < 512; j++) {
 
 			Tree* t = new Tree();
+
+			model::Plane planeModel;
+			planeModel.SetModule(*c->terrainGenerator);
 
 			float x = rand() / (float)RAND_MAX;
 			float y = rand() / (float)RAND_MAX;
@@ -36,13 +39,15 @@ void TerrainFoliage::generate() {
 			int ix = (int)floor(x * (float)c->heightmap.GetWidth());
 			int iy = (int)floor(y * (float)c->heightmap.GetWidth());
 
-			float height = c->heightmap.GetValue(ix, iy) * vertical_scale;
+			float height = planeModel.GetValue((x * getChunkSpacing() + c->origin.x) * horizontal_scale, (y * getChunkSpacing() + c->origin.y) * horizontal_scale) * vertical_scale;
+
+	//		float height = c->heightmap.GetValue(ix, iy) * vertical_scale;
 
 			if (height < 0.1) continue;
 
 			t->pos = glm::vec3(x * getChunkSpacing() + c->origin.x, y * getChunkSpacing() + c->origin.y, height);
 
-			t->scale = (rand()/(float)RAND_MAX) * 0.4;
+			t->scale = (rand()/(float)RAND_MAX);
 			t->angle = rand() / (float)RAND_MAX;
 
 //			printf("%i, %i\n", ix, iy);
@@ -65,6 +70,8 @@ void TerrainFoliage::generate() {
 				default:
 					break;
 			}
+
+			t->scale *= 0.4;
 
 			c->trees.push_back(t);
 

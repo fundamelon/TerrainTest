@@ -1,9 +1,8 @@
-#version 400
+#version 420
 
 in vec2 vp;
 in vec2 vt;
 
-// texture coordinates to be interpolated to fragment shaders
 out vec2 texcoord;
 
 void main () {

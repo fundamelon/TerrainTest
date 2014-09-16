@@ -28,13 +28,13 @@ int main() {
 	mainTerrain->init();
 
 	//TERRAIN SEED
-	mainTerrain->setSeed(233);
+	mainTerrain->setSeed(222);
 
 	mainRenderer->setTerrain(mainTerrain);
 	mainRenderer->initTerrain();
 
 	mainRenderer->initCamera();
-	mainRenderer->cam.pos = glm::vec3((1 << 15) * mainTerrain->getGridSpacing(), (1 << 15) * mainTerrain->getGridSpacing(), 5);
+	mainRenderer->cam.pos = glm::vec3((1 << 12) * mainTerrain->getGridSpacing(), (1 << 12) * mainTerrain->getGridSpacing(), 5);
 
 	// initialize terrain
 	printf("Initializing terrain...\n");

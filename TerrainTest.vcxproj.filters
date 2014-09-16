@@ -105,5 +105,9 @@
     <None Include="shader\tree_vs.glsl" />
     <None Include="shader\tree_fs.glsl" />
     <None Include="shader\billboard_gs.glsl" />
+    <None Include="shader\depth_vs.glsl" />
+    <None Include="shader\depth_fs.glsl" />
+    <None Include="shader\hdr_vs.glsl" />
+    <None Include="shader\hdr_fs.glsl" />
   </ItemGroup>
 </Project>

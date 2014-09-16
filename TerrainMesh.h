@@ -13,11 +13,17 @@
 
 #define MAX_POLY_PER_VERTEX 16
 
+struct Chunk;
 
 struct Point {
 
+	Chunk* owner;
+
 	//vertex
 	glm::vec3 vert;
+
+	// local chunk offset
+	glm::vec3 local_offset;
 
 	//normal
 	glm::vec3 norm;
@@ -64,6 +70,8 @@ public:
 
 	float* getTerrainVertexBuffer();
 	float* getTerrainNormalBuffer();
+	float* getTerrainTexcoordBuffer();
+
 	float* getWaterVertexBuffer();
 	float* getWaterNormalBuffer();
 	float* getWaterTexcoordBuffer();
@@ -79,6 +87,8 @@ private:
 
 	float* terrain_vertex_buffer;
 	float* terrain_normal_buffer;
+	float* terrain_texcoord_buffer;
+
 	float* water_vertex_buffer;
 	float* water_normal_buffer;
 	float* water_texcoord_buffer;

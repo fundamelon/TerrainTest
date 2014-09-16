@@ -10,7 +10,6 @@ unsigned int flags = FLAG_UPDATED | FLAG_BUFREADY;
 int seed = 0;
 glm::ivec2 chunkPos;
 int lod_count;
-unsigned int dist_div = 2;
 
 
 Terrain::Terrain() {
@@ -181,6 +180,10 @@ void Terrain::regen() {
 	terrain_buf.norm.size = terrain_buf.length * sizeof(float); // size is length times float bytes
 	terrain_buf.norm.step = 3;
 
+	terrain_buf.texcoord.data = mesh->getTerrainTexcoordBuffer();
+	terrain_buf.texcoord.size = terrain_buf.length / 3 * 2 * sizeof(float); // 2 per vertex
+	terrain_buf.texcoord.step = 2;
+
 	//-------------------- WATER BUFFER --------------------
 
 	water_buf.length = mesh->getWaterBufferSize();
@@ -228,12 +231,11 @@ void Terrain::generateChunk(int x, int y, int id) {
 	c->addr.x = x;
 	c->addr.y = y;
 	//	printf("[TER] Generating chunk at <%i, %i> (LOD = %i)\n", x, y, getLOD(c));
-	c->origin = glm::vec2(getChunkSpacing() * c->addr.x - getChunkSpacing() / 2, getChunkSpacing() * c->addr.y - getChunkSpacing() / 2);
+	c->origin = glm::ivec2(getChunkSpacing() * c->addr.x - getChunkSpacing() / 2, getChunkSpacing() * c->addr.y - getChunkSpacing() / 2);
 	c->lod = getLOD(c);
-
 	c->water_height = ocean_height;
-
 	c->foliage_loaded = false;
+	c->terrainGenerator = &samplerScale;
 
 	unsigned int vert_i = 0; // vertex index
 
@@ -260,8 +262,15 @@ void Terrain::generateChunk(int x, int y, int id) {
 	//iterate through grid
 	for (unsigned int row = 0; row < GRID_SIZE; row++) {
 		for (unsigned int col = 0; col < GRID_SIZE; col++) {
-			c->points[vert_i].vert.x = (col * GRID_SPACING) + c->origin.x; // x
-			c->points[vert_i].vert.y = (row * GRID_SPACING) + c->origin.y; // y
+
+			c->points[vert_i].owner = c;
+
+			c->points[vert_i].local_offset.x = (col * GRID_SPACING);
+			c->points[vert_i].local_offset.y = (row * GRID_SPACING);
+
+			c->points[vert_i].vert.x = c->points[vert_i].local_offset.x + c->origin.x; // x
+			c->points[vert_i].vert.y = c->points[vert_i].local_offset.y + c->origin.y; // y
+			
 
 			//only call displacement calculation if LOD will display it.
 			if (row % lod_mul != 0 || col % lod_mul != 0) {
@@ -401,7 +410,10 @@ unsigned int Terrain::getLOD(Chunk* c) {
 	int dy = abs(chunkPos.y - c->addr.y) / dist_div - 1;
 	int d = (int)fmax(dx, dy);
 
-	if (dist_div == 1 && d >= 5 && d <= 7) d = 4;
+	if (dist_div == 1) {
+	//	if (d >= 4 && d <= 6) d = 3;
+	//	if (d == 7) d = 4;
+	}
 
 	return (int)fmax(0, fmin(lod_count - 1, d));
 }
@@ -443,7 +455,7 @@ TerrainFoliage* Terrain::getTerrainFoliage() {
 }
 
 
-float Terrain::getChunkSpacing() {
+int Terrain::getChunkSpacing() {
 	
 	return GRID_SIZE * GRID_SPACING;
 }
@@ -509,15 +521,17 @@ unsigned int getChunkCount() {
 }
 
 
-float getChunkSpacing() { 
+int getChunkSpacing() { 
 	
 	return GRID_SIZE * GRID_SPACING; 
 }
 
-float Terrain::getGridSpacing() {
+
+int Terrain::getGridSpacing() {
 
 	return GRID_SPACING;
 }
+
 
 glm::ivec2 Terrain::getChunkPos() {
 

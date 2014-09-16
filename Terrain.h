@@ -42,8 +42,8 @@ public:
 	TerrainMesh* getTerrainMesh();
 	TerrainFoliage* getTerrainFoliage();
 
-	float getChunkSpacing();
-	float getGridSpacing();
+	int getChunkSpacing();
+	int getGridSpacing();
 
 	glm::ivec2 getChunkPos();
 	unsigned int getLOD(Chunk*);
@@ -78,6 +78,12 @@ public:
 	float terrain_disp = -1.0f;
 
 	float ocean_height = 0.0f;
+
+	//Determines which LOD to use at distance.
+	//1: near
+	//2: med
+	//3: far
+	unsigned int dist_div = 1;
 
 
 	std::vector<glm::ivec2> chunk_gen_queue;

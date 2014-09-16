@@ -1,6 +1,7 @@
 #include <gl/glew.h>
 
 #include <string>
+#include <map>
 
 class Shader {
 public:
@@ -10,9 +11,9 @@ public:
 
 	void loadFromFile(const char*);
 
-	void loadShaderProgram(char*, char*);
-	void loadShaderProgram(char*, char*, char*);
-	void loadShaderProgram(char*, char*, char*, char*);
+	void loadShaderProgram(char*, char*);					// vert, frag
+	void loadShaderProgram(char*, char*, char*);			// vert, geom, frag
+	void loadShaderProgram(char*, char*, char*, char*);		// vert, tess control, tess eval, frag
 
 	void compile();
 
@@ -30,10 +31,10 @@ private:
 
 class ShaderProgram {
 public:
-	ShaderProgram(char*);
-	ShaderProgram(char*, char*);
-	ShaderProgram(char*, char*, char*);
-	ShaderProgram(char*, char*, char*, char*);
+	ShaderProgram(char*);							// single
+	ShaderProgram(char*, char*);					// vert, frag
+	ShaderProgram(char*, char*, char*);				// vert, geom, frag
+	ShaderProgram(char*, char*, char*, char*);		// vert, tess control, tess eval, frag
 
 	GLuint getUniformLocation(char*);
 
@@ -43,10 +44,13 @@ public:
 	struct {
 		GLuint model_mat, view_mat, proj_mat;
 		GLuint caster_model_mat, caster_view_mat, caster_proj_mat;
-		GLuint sun_dir;
+		GLuint sun_dir, sun_ss_pos;
 		GLuint time;
 		GLuint render_type;
+		GLuint hdr_threshold;
 	} uniforms;
+
+//	std::map<GLuint, std::string> uniforms;
 
 	GLuint getIndex();
 

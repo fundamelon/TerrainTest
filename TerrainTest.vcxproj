@@ -106,7 +106,11 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="shader\billboard_gs.glsl" />
+    <None Include="shader\depth_fs.glsl" />
+    <None Include="shader\depth_vs.glsl" />
     <None Include="shader\fs.glsl" />
+    <None Include="shader\hdr_fs.glsl" />
+    <None Include="shader\hdr_vs.glsl" />
     <None Include="shader\phong_test_fs.glsl" />
     <None Include="shader\phong_test_vs.glsl" />
     <None Include="shader\post_process_fs.glsl" />

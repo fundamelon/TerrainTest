@@ -44,7 +44,8 @@ public:
 	void updateControls();
 
 	void loadSkybox();
-	void loadFramebuffer();
+	void createFramebuffer(GLuint, GLuint &, GLuint &);
+	void createFramebuffer(GLuint, GLuint &, GLuint &, int, int);
 	GLuint loadShaderProgram(char*, char*); // vs, fs
 	GLuint loadShaderProgram(char*, char*, char*); // vs, gs, fs
 	GLuint loadShaderProgram(char*, char*, char*, char*); // vs, tc, te, fs
@@ -94,24 +95,43 @@ private:
 	glm::vec3 sun_direction = glm::normalize(glm::vec3(0.5f, 0.0f, 1.0f));
 	float sun_inclination = 0.5f;
 
-	//size of shadow depth map
+	float near_clip_dist = 0.02f;
+	float far_clip_dist = 2000.0f;
+
+	float hdr_low_threshold = 1.0f;
+	float hdr_high_threshold = 1.2f;
+
+	//size of distant shadow depth map
 	int shadow_size = 1024;
 
-	GLuint fb;
-	GLuint fb_depth;
+	glm::mat4 proj_mat;
 
-	GLuint fb_tex;
+	GLuint fb_default;
+	GLuint fb_depth;
+	GLuint fb_hdr_low;
+	GLuint fb_hdr_high;
+	GLuint fb_caster_depth;
+	GLuint fb_final;
+
+	GLuint fb_tex_default;
+	GLuint fb_tex_hdr_low;
+	GLuint fb_tex_hdr_high;
+	GLuint fb_tex_caster_depth;
 	GLuint fb_tex_depth;
+	GLuint fb_tex_final;
 
 	//textures
 	GLuint depth_texture;
 	GLuint water_disp_tex;
 	GLuint tree_test_tex;
+	GLuint terrain_tex_grass;
+	GLuint terrain_tex_dirt;
 
 	//shader programs
 	ShaderProgram* default_shader;
 	ShaderProgram* post_process_shader;
 	ShaderProgram* terrain_shader;
+	ShaderProgram* depth_shader;
 	ShaderProgram* sky_shader;
 	ShaderProgram* shadow_shader;
 	ShaderProgram* tex_shader;
@@ -119,6 +139,7 @@ private:
 	ShaderProgram* tess_shader;
 	ShaderProgram* terrain_tess_shader;
 	ShaderProgram* forest_shader;
+	ShaderProgram* hdr_shader;
 
 	std::vector<GLuint> shader_programs;
 
@@ -132,6 +153,8 @@ private:
 	GLuint terrain_vao;
 	GLuint water_vao;
 	GLuint trees_far_vao;
+
+	bool forest_sample_mode = false;
 
 	unsigned int terrain_vao_length = 0;
 	unsigned int water_vao_length = 0;

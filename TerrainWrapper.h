@@ -4,8 +4,8 @@
 #include <vector>
 
 //constant terrain parameters
-#define GRID_SIZE 32
-#define GRID_SPACING 2.0f
+#define GRID_SIZE 64
+#define GRID_SPACING 2
 
 
 enum StatusFlags {
@@ -59,13 +59,15 @@ struct Chunk {
 	float water_height;
 
 	//position of bottom left corner
-	glm::vec2 origin;
+	glm::ivec2 origin;
 
 	//position in chunk coordinates
 	glm::ivec2 addr;
 
 	//chunk data
 	Point* points;
+
+	noise::module::ScaleBias* terrainGenerator;
 
 	//heightmap data
 	utils::NoiseMap heightmap;
@@ -77,15 +79,9 @@ Chunk* getChunkAt(int, int);
 Chunk* getChunkByID(unsigned int);
 bool containsChunkAt(int, int);
 unsigned int getChunkCount();
-float getChunkSpacing();
+int getChunkSpacing();
 
 //LOD controller
 extern int lod_count;
-
-//Determines which LOD to use at distance.
-//1: near
-//2: med
-//3: far
-extern unsigned int dist_div;
 
 #endif

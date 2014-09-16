@@ -9,10 +9,11 @@ in float tree_dist;
 //layout (binding = 1) uniform sampler2D disp_tex;
 
 layout (binding = 0) uniform sampler2D tex0;
+layout (binding = 1) uniform sampler2D tex1;
 //...
 layout (binding = 7) uniform sampler2D tex7;
 
-uniform mat4 view_mat;
+uniform mat4 view_mat, model_mat;
 uniform vec3 sun_direction;
 uniform int type;
 uniform float time;
@@ -21,6 +22,8 @@ uniform float time;
 vec3 Ls = vec3 (1.0, 1.0, 1.0); // white specular colour
 vec3 Ld = vec3 (0.7, 0.7, 0.7); // dull white diffuse light colour
 vec3 La = vec3 (0.2, 0.2, 0.2); // grey ambient colour
+
+float cycle, cycle_factor;
 
 out vec4 frag_color; // final colour of surface
 
@@ -54,17 +57,24 @@ vec4 terrain_color() {
 	vec3 Ka = vec3 (1.0, 1.0, 1.0); // fully reflect ambient light
 
 	// surface colors
-	vec3 green = vec3(0.2, 0.4, 0.22);
+	vec3 green = vec3(0.2, 0.44, 0.18);
 	//vec3 green = vec3(0, 0, 1);
 
 	vec3 brown = vec3(0.35, 0.35, 0.24);
 	//vec3 brown = vec3(1, 0, 0);
 
 	vec3 gray = vec3(0.35, 0.35, 0.35);
+
+//	Kd = green;
+	if(position.z < 2) {
+		Kd = mix(texture(tex0, texcoord).rgb, texture(tex1, texcoord).rgb + 0.1, smoothstep(2.0, -1.0, position.z));
+	} else {
+		Kd = texture(tex0, texcoord).rgb;
+	}
 	
-	/*
-	//initial terrain coloring
 	float slope = max(dot(normal, vec3(0, 0, 1)), 0.0);
+
+	/*
 	float t1 = smoothstep(0.8, 0.9, slope);
 	float t2 = smoothstep(0.7, 0.8, slope);
 	Kd = mix(gray, mix(brown, green, t1), t2);
@@ -79,8 +89,6 @@ vec4 terrain_color() {
 		Kd = mix(vec3(0.2, 0.4, 0.4), Kd, smoothstep(-6, 0, position.z));
 	}
 	*/
-
-	Kd = green;
 
 	Ka = Kd * 0.3;
 
@@ -107,18 +115,21 @@ vec4 water_color() {
 	// ambient intensity
 	vec3 Ia = vec3(0.1, 0.3, 0.9) * 0.4;
 
+	vec3 water_normal = normalize(texture(tex1, texcoord).rgb);
+	vec3 water_normal_eye = vec3 (view_mat * model_mat * vec4 (water_normal, 0.0));
+
 	// diffuse intensity
 	vec3 direction_to_light_eye = vec3(view_mat * vec4(sun_direction, 1.0));
-	float dot_prod = dot(direction_to_light_eye, normal_eye);
+	float dot_prod = dot(direction_to_light_eye, water_normal_eye);
 	dot_prod = max(dot_prod, 0.0);
 	vec3 Id = Ld * Kd * dot_prod; //final intensity
 
-	int specular_exponent = 10;
+	int specular_exponent = 20;
   
 	//TODO: perturbations
 	vec3 surface_to_viewer_eye = normalize(-position_eye);
 	vec3 half_angle = normalize(direction_to_light_eye + surface_to_viewer_eye);
-	float dot_prod_specular = dot(normal_eye, half_angle);
+	float dot_prod_specular = dot(water_normal_eye, half_angle);
 	dot_prod_specular = clamp(dot_prod_specular, 0.0, 1.0);
 	float specular_factor = pow(dot_prod_specular, specular_exponent);
 	vec3 Is = vec3(specular_factor);
@@ -127,9 +138,11 @@ vec4 water_color() {
 	if(sun_direction.z < 0) Is *= 0;
 
 	float alpha = min(1.0, 1 - max(0.0, abs(dot(normalize(position_eye), normal_eye))) + 0.1);
+
+	float shadow = eval_shadow();
   
 	// final colour
-	return vec4 ((Is + Id + Ia) * (0.5 + 0.5 * eval_shadow()), alpha);
+	return vec4 ((Id + Ia) * (cycle_factor * 0.95 + 0.05) * (0.5 + 0.5 * shadow) + (Is * shadow), alpha);
 }
 
 
@@ -155,8 +168,8 @@ vec4 tree_color() {
 void main () {
 
 	// day-night cycle factor
-	float cycle = dot(sun_direction, vec3(0.0, 0.0, 1.0));
-	float cycle_factor = smoothstep(-0.5, 0.1, cycle);
+	cycle = dot(sun_direction, vec3(0.0, 0.0, 1.0));
+	cycle_factor = smoothstep(-0.3, 0.4, cycle);
 
 	vec4 pre_color = vec4(0.0);
 
@@ -179,4 +192,6 @@ void main () {
 	frag_color = mix (pre_color, fog_color, fog_fac);
 
 //	frag_color = vec4(position.z/1, 0.0, 0.0, 1.0);
+
+	clamp(frag_color, 0.0, 1.0);
 }

@@ -405,10 +405,14 @@ void TerrainMesh::genTerrainBuffers() {
 
 	delete[] terrain_vertex_buffer;
 	delete[] terrain_normal_buffer;
+	delete[] terrain_texcoord_buffer;
 	terrain_vertex_buffer = new float[tris.size() * 9];
 	terrain_normal_buffer = new float[tris.size() * 9];
+	terrain_texcoord_buffer = new float[tris.size() * 6];
 	unsigned int offset = 0;
 	unsigned int limit = GRID_SIZE * GRID_SIZE;
+
+	unsigned int texcoord_index = 0;
 
 	for (unsigned int t_i = 0; t_i < tris.size(); t_i++) {
 		Tri t = tris.at(t_i); // get triangle structure
@@ -417,12 +421,15 @@ void TerrainMesh::genTerrainBuffers() {
 		// write vertices directly from tri
 		for (int i = 0; i < 3; i++) {
 			//handle normally by local chunk index
-			terrain_vertex_buffer[offset + i * 3 + 0] = t.points[i]->vert.x; // x
-			terrain_vertex_buffer[offset + i * 3 + 1] = t.points[i]->vert.y; // y
+			terrain_vertex_buffer[offset + i * 3 + 0] = t.points[i]->local_offset.x + t.points[i]->owner->origin.x; // x
+			terrain_vertex_buffer[offset + i * 3 + 1] = t.points[i]->local_offset.y + t.points[i]->owner->origin.y; // y
 			terrain_vertex_buffer[offset + i * 3 + 2] = t.points[i]->vert.z; // z
 
-			//	printf("%i:\n", offset + i);
-			//	printf("%f, %f, %f\n", vertex_buffer[offset + i*3 + 0], vertex_buffer[offset + i*3 + 1], vertex_buffer[offset + i*3 + 2]);
+			terrain_texcoord_buffer[texcoord_index++] = (float)(t.points[i]->local_offset.x + t.points[i]->owner->origin.x) * 0.1;
+			terrain_texcoord_buffer[texcoord_index++] = (float)(t.points[i]->local_offset.y + t.points[i]->owner->origin.y) * 0.1;
+
+		//	printf("%i:\n", offset + i);
+		//	printf("%f, %f, %f\n", terrain_vertex_buffer[offset + i * 3 + 0], terrain_vertex_buffer[offset + i * 3 + 1], terrain_vertex_buffer[offset + i * 3 + 2]);
 
 		//	if (flag_force_facenormals) {
 			if (flags & FLAG_FORCE_FACENORMALS) {
@@ -548,6 +555,7 @@ unsigned int TerrainMesh::getWaterBufferSize() { return water_buffer_size; }
 
 float* TerrainMesh::getTerrainVertexBuffer() { return terrain_vertex_buffer; }
 float* TerrainMesh::getTerrainNormalBuffer() { return terrain_normal_buffer; }
+float* TerrainMesh::getTerrainTexcoordBuffer() { return terrain_texcoord_buffer; }
 float* TerrainMesh::getWaterVertexBuffer() { return water_vertex_buffer; }
 float* TerrainMesh::getWaterNormalBuffer() { return water_normal_buffer; }
 float* TerrainMesh::getWaterTexcoordBuffer() { return water_texcoord_buffer; }

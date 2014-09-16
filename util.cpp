@@ -4,7 +4,7 @@ std::string util::getFileContents(const char *filepath)
 {
 	std::ifstream in(filepath);
 	std::stringstream out;
-	DEBUG ? printf("- Reading file %s... ", filepath) : NULL;
+//	DEBUG ? printf("- Reading file %s... ", filepath) : NULL;
 	
 	if (in.is_open())
 	{
@@ -18,11 +18,11 @@ std::string util::getFileContents(const char *filepath)
 		std::string contents = std::string(out.str());
 
 		in.close();
-		DEBUG_SHADER ? printf("\n--------------------\n%s--------------------\n", contents.c_str()) : NULL;
-		DEBUG ? printf("Success.\n") : NULL;
+	//	DEBUG_SHADER ? printf("\n--------------------\n%s--------------------\n", contents.c_str()) : NULL;
+	//	DEBUG ? printf("Success.\n") : NULL;
 		return contents;
 	}
 	
-	DEBUG ? printf("\nERROR: File not found.\n", filepath): NULL;
+//	DEBUG ? printf("\nERROR: File not found.\n", filepath): NULL;
 	throw(errno);
 }
