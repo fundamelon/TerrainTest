@@ -17,7 +17,12 @@ uniform vec2 sun_pos;
 // sun direction vector
 uniform vec3 sun_dir;
 
+// view direction vector
+uniform vec3 view_dir;
+
 out vec4 frag_color;
+
+int DEBUG_MODE = 0;
 
 // Gaussian kernel weights
 #define KERNEL_SIZE 25
@@ -30,6 +35,12 @@ float kernel_weights[] = float[](
 );
 float weights_factor = 1.01238;
 
+
+float brightness(vec4 col) {
+	
+	const vec4 dot_fac = vec4(1.0);
+	return dot(col.rgb, dot_fac.rgb) / 3.0;
+}
 
 
 vec4 bloom(vec4 colour) {
@@ -99,10 +110,10 @@ vec4 gauss_blur(sampler2D src, vec2 pos, float mul) {
 
 vec4 godray(sampler2D src, vec2 pos) {
 
-	const float density = 0.8;
+	const float density = 0.5;
 	const int samples = 32;
 	const float weight = 0.3;
-	const float decay = 1.01;
+	const float decay = 0.91;
 	
 	vec2 deltaTexCoord = (pos - sun_pos);
 	
@@ -128,11 +139,20 @@ vec4 godray(sampler2D src, vec2 pos) {
 void main () {
 
 	// only blur rhs for comparison
-	if (false && texcoord.x >= 0.5) {
-		frag_color = texture(hdr_low, texcoord);
+	if (DEBUG_MODE != 0 && texcoord.x >= 0.5) {
+		switch(DEBUG_MODE) {
+			case 1:
+				vec4 out_col = texture(depth, texcoord);
+				if(brightness(out_col) == 1.0) out_col = vec4(0.0, 0.0, 0.0, 1.0);
+				frag_color = out_col;
+				break;
+			case 2:
+				frag_color = texture(hdr_high, texcoord);
+				break;
+			default: break;
+		}
 	} else {
-  //	frag_color = bloom(vec4(0.1));
-		frag_color = texture(tex, texcoord) + gauss_blur(hdr_low, texcoord, 1.5) + godray(hdr_high, texcoord) * 4;
+		frag_color = texture(tex, texcoord) + godray(hdr_high, texcoord) * 3 * smoothstep(1, 0, distance(vec2(0.5), sun_pos));
 	}
 
 	clamp(frag_color, 0.0, 1.0);

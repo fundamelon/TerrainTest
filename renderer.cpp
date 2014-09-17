@@ -249,6 +249,7 @@ void Renderer::init() {
 
 	depth_shader->loadDefaultMatrixUniforms();
 	hdr_shader->uniforms.hdr_threshold = hdr_shader->getUniformLocation("hdr_threshold");
+	hdr_shader->uniforms.sun_ss_pos = hdr_shader->getUniformLocation("sun_pos");
 
 	if (use_tessellation)
 		terrain_shader = new ShaderProgram("tess_vs", "tess_tc", "tess_te", "terrain_fs");
@@ -259,15 +260,16 @@ void Renderer::init() {
 
 	loadSkybox();
 
+	initShadowMap();
+
 	createFramebuffer(GL_RGBA16F, fb_default, fb_tex_default);
+	attachDepthTexture(fb_default, fb_tex_depth, g_gl_width, g_gl_height);
+
 	createFramebuffer(GL_RGBA, fb_hdr_low, fb_tex_hdr_low);
 	createFramebuffer(GL_RGBA, fb_hdr_high, fb_tex_hdr_high);
 	createFramebuffer(GL_RGBA, fb_final, fb_tex_final);
-//	createFramebuffer(fb_depth, fb_tex_depth);
 
 	loadPostProcessShader();
-
-	initShadowMap();
 
 	//shadow uniforms
 	shadow_shader->loadDefaultMatrixUniforms();
@@ -332,6 +334,9 @@ void Renderer::render() {
 	glm::vec2 sun_ss_pos = glm::vec2(sun_clip_pos) / sun_clip_pos.z;
 	sun_ss_pos = sun_ss_pos * 0.5f + 0.5f;
 
+	// compute view direction vector
+	glm::vec3 view_dir = glm::normalize(glm::vec3(view_mat * glm::vec4(0.0f, 0.0f, -1.0f, 0.0f)));
+
 
 	//------------- shadowmaps -------------
 
@@ -341,7 +346,7 @@ void Renderer::render() {
 	// set viewport to size of shadowmap
 	glViewport(0, 0, shadow_size, shadow_size);
 
-	// clear shadowmap to white
+	// clear fb to white
 	glClearColor(1.0, 1.0, 1.0, 1.0);
 	glClear(GL_DEPTH_BUFFER_BIT);
 
@@ -373,8 +378,7 @@ void Renderer::render() {
 
 	glBindFramebuffer(GL_FRAMEBUFFER, fb_default);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-	//select wireframe if flag is set
+	
 	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
 	glUseProgram(0);
@@ -434,9 +438,6 @@ void Renderer::render() {
 	glActiveTexture(GL_TEXTURE7);
 	glBindTexture(GL_TEXTURE_2D, fb_tex_caster_depth);
 
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
 	glPolygonMode(GL_FRONT_AND_BACK, wireframe ? GL_LINE : GL_FILL);
 
 	if (use_tessellation) {
@@ -489,9 +490,6 @@ void Renderer::render() {
 
 	glActiveTexture(GL_TEXTURE7);
 	glBindTexture(GL_TEXTURE_2D, fb_tex_caster_depth);
-
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
 //	glEnable(GL_ALPHA_TEST);
 	glEnable(GL_BLEND);
@@ -559,8 +557,14 @@ void Renderer::render() {
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, fb_tex_default);
 
+	//send depth texture to shader
+	glActiveTexture(GL_TEXTURE1);
+	glBindTexture(GL_TEXTURE_2D, fb_tex_depth);
+
 	// ----------- HDR ------------
 	glUseProgram(hdr_shader->getIndex());
+	glUniform2fv(hdr_shader->uniforms.sun_ss_pos, 1, glm::value_ptr(sun_ss_pos));
+
 	glBindVertexArray(ss_quad_vao);
 
 	// perform low HDR pass
@@ -581,10 +585,6 @@ void Renderer::render() {
 	glBindFramebuffer(GL_FRAMEBUFFER, fb_final);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-	//send depth texture to shader
-	glActiveTexture(GL_TEXTURE1);
-	glBindTexture(GL_TEXTURE_2D, fb_tex_depth);
-
 	// low HDR texture
 	glActiveTexture(GL_TEXTURE2);
 	glBindTexture(GL_TEXTURE_2D, fb_tex_hdr_low);
@@ -597,7 +597,8 @@ void Renderer::render() {
 	glUseProgram(post_process_shader->getIndex());
 
 	glUniform2fv(post_process_shader->uniforms.sun_ss_pos, 1, glm::value_ptr(glm::vec2(sun_ss_pos)));
-	glUniform3fv(post_process_shader->uniforms.sun_dir, 1, glm::value_ptr(glm::vec3(view_mat * glm::vec4(sun_direction, 1.0f))));
+	glUniform3fv(post_process_shader->uniforms.sun_dir, 1, glm::value_ptr(sun_direction));
+	glUniform3fv(post_process_shader->uniforms.view_dir, 1, glm::value_ptr(view_dir));
 
 	glBindVertexArray(ss_quad_vao);
 	glDrawArrays(GL_TRIANGLES, 0, 6);
@@ -1010,6 +1011,7 @@ void Renderer::initCamera() {
 	//input variables
 	float fov = 67.0f * ONE_DEG_IN_RAD; //67 radians
 	float aspect = (float)g_gl_width / (float)g_gl_height;
+	
 	//matrix components
 	float range = tan(fov * 0.5f) * near_clip_dist;
 	float Sx = (2.0f * near_clip_dist) / (range * aspect + range * aspect);
@@ -1023,6 +1025,10 @@ void Renderer::initCamera() {
 		0.0f, 0.0f, Sz, -1.0f,
 		0.0f, 0.0f, Pz, 0.0f
 	);
+
+	
+
+//	proj_mat = glm::perspective(67.0f, aspect, near_clip_dist, far_clip_dist);
 
 	float model_mat[] = {
 		1.0f, 0.0f, 0.0f, 0.0f,
@@ -1167,6 +1173,46 @@ void Renderer::createFramebuffer(GLuint format, GLuint &fb, GLuint &fb_tex, int 
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
+void Renderer::attachDepthTexture(GLuint fb, GLuint &fb_depth, int width, int height) {
+
+	glBindFramebuffer(GL_FRAMEBUFFER, fb);
+
+	// create texture for framebuffer
+	glGenTextures(1, &fb_depth);
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, fb_depth);
+	glTexImage2D(
+		GL_TEXTURE_2D,
+		0,
+		GL_DEPTH_COMPONENT24,
+		width,
+		height,
+		0,
+		GL_DEPTH_COMPONENT,
+		GL_UNSIGNED_BYTE,
+		NULL
+		);
+
+	// bi-linear filtering is very cheap and makes a big improvement over nearest-neighbour
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+
+	// clamp to edge. clamp to border may reduce artifacts outside light frustum
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+	// This is to allow usage of shadow2DProj function in the shader
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_R_TO_TEXTURE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL);
+	glTexParameteri(GL_TEXTURE_2D, GL_DEPTH_TEXTURE_MODE, GL_INTENSITY);
+
+	// attach depth texture to framebuffer
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, fb_depth, 0);
+
+	// bind default framebuffer again
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
 
 void Renderer::loadPostProcessShader() {
 
@@ -1177,6 +1223,7 @@ void Renderer::loadPostProcessShader() {
 	GLuint pixel_scale_loc = glGetUniformLocation(post_process_shader->getIndex(), "pixel_scale");
 	post_process_shader->uniforms.sun_ss_pos = post_process_shader->getUniformLocation("sun_pos");
 	post_process_shader->uniforms.sun_dir = post_process_shader->getUniformLocation("sun_dir");
+	post_process_shader->uniforms.view_dir = post_process_shader->getUniformLocation("view_dir");
 
 	float x_scale = 1.0f / g_gl_width;
 	float y_scale = 1.0f / g_gl_height;

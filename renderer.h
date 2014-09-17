@@ -44,8 +44,11 @@ public:
 	void updateControls();
 
 	void loadSkybox();
+
 	void createFramebuffer(GLuint, GLuint &, GLuint &);
 	void createFramebuffer(GLuint, GLuint &, GLuint &, int, int);
+	void attachDepthTexture(GLuint, GLuint &, int, int);
+
 	GLuint loadShaderProgram(char*, char*); // vs, fs
 	GLuint loadShaderProgram(char*, char*, char*); // vs, gs, fs
 	GLuint loadShaderProgram(char*, char*, char*, char*); // vs, tc, te, fs

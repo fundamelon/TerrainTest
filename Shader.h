@@ -44,7 +44,7 @@ public:
 	struct {
 		GLuint model_mat, view_mat, proj_mat;
 		GLuint caster_model_mat, caster_view_mat, caster_proj_mat;
-		GLuint sun_dir, sun_ss_pos;
+		GLuint sun_dir, view_dir, sun_ss_pos;
 		GLuint time;
 		GLuint render_type;
 		GLuint hdr_threshold;
