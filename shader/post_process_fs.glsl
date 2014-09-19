@@ -22,18 +22,18 @@ uniform vec3 view_dir;
 
 out vec4 frag_color;
 
-int DEBUG_MODE = 0;
+const int DEBUG_MODE = 0;
 
 // Gaussian kernel weights
 #define KERNEL_SIZE 25
-float kernel_weights[] = float[]( 
+const float kernel_weights[] = float[]( 
   0.00048031, 0.00500493, 0.01093176, 0.00500493, 0.00048031,
   0.00500493, 0.05215252, 0.11391157, 0.05215252, 0.00500493,
   0.01093176, 0.11391157, 0.24880573, 0.11391157, 0.01093176,
   0.00500493, 0.05215252, 0.11391157, 0.05215252, 0.00500493,
   0.00048031, 0.00500493, 0.01093176, 0.00500493, 0.00048031
 );
-float weights_factor = 1.01238;
+const float weights_factor = 1.01238;
 
 
 float brightness(vec4 col) {
@@ -45,9 +45,9 @@ float brightness(vec4 col) {
 
 vec4 bloom(vec4 colour) {
 
-	vec2 size = vec2(1);
-	int samples = 5; // pixels per axis; higher = bigger glow, worse performance
-	float quality = 2.5; // lower = smaller glow, better quality
+	const vec2 size = vec2(1);
+	const int samples = 5; // pixels per axis; higher = bigger glow, worse performance
+	const float quality = 2.5; // lower = smaller glow, better quality
 
 	vec4 source = texture(tex, texcoord);
 	vec4 sum = vec4(0);
@@ -68,7 +68,7 @@ vec4 gauss_blur(sampler2D src, vec2 pos, float mul) {
 
 	vec4 color;
 
-	vec2 offset[] = vec2[](
+	const vec2 offset[] = vec2[](
 		vec2 (-pixel_scale.s * 2.0, -pixel_scale.t * 2.0),
 		vec2 (-pixel_scale.s, -pixel_scale.t * 2.0),
 		vec2 (0.0, -pixel_scale.t * 2.0),

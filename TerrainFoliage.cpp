@@ -25,7 +25,7 @@ void TerrainFoliage::generate() {
 
 		srand(seed + c->id);
 
-		for (unsigned int j = 0; j < 512; j++) {
+		for (unsigned int j = 0; j < 5120; j++) {
 
 			Tree* t = new Tree();
 

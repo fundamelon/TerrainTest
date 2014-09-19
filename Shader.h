@@ -42,12 +42,23 @@ public:
 	void loadCasterMatrixUniforms();
 
 	struct {
+		// matrices
 		GLuint model_mat, view_mat, proj_mat;
 		GLuint caster_model_mat, caster_view_mat, caster_proj_mat;
-		GLuint sun_dir, view_dir, sun_ss_pos;
-		GLuint time;
+
+		// directions
+		GLuint sun_dir, view_dir;
+		
+		// values
 		GLuint render_type;
 		GLuint hdr_threshold;
+		GLuint sun_dot;
+
+		// screenspace
+		GLuint sun_ss_pos;
+
+		// global values
+		GLuint time;
 	} uniforms;
 
 //	std::map<GLuint, std::string> uniforms;

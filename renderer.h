@@ -81,6 +81,8 @@ public:
 	
 	bool use_tessellation = false;
 
+	bool use_mipmaps = true;
+
 	bool cam_moved;
 
 	struct {

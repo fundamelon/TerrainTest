@@ -15,6 +15,7 @@ layout (binding = 7) uniform sampler2D tex7;
 
 uniform mat4 view_mat, model_mat;
 uniform vec3 sun_direction;
+uniform float sun_dot;
 uniform int type;
 uniform float time;
 
@@ -23,7 +24,7 @@ vec3 Ls = vec3 (1.0, 1.0, 1.0); // white specular colour
 vec3 Ld = vec3 (0.7, 0.7, 0.7); // dull white diffuse light colour
 vec3 La = vec3 (0.2, 0.2, 0.2); // grey ambient colour
 
-float cycle, cycle_factor;
+float cycle_factor;
 
 out vec4 frag_color; // final colour of surface
 
@@ -168,8 +169,7 @@ vec4 tree_color() {
 void main () {
 
 	// day-night cycle factor
-	cycle = dot(sun_direction, vec3(0.0, 0.0, 1.0));
-	cycle_factor = smoothstep(-0.3, 0.4, cycle);
+	cycle_factor = smoothstep(-0.3, 0.2, sun_dot);
 
 	vec4 pre_color = vec4(0.0);
 

@@ -251,10 +251,15 @@ void Renderer::init() {
 	hdr_shader->uniforms.hdr_threshold = hdr_shader->getUniformLocation("hdr_threshold");
 	hdr_shader->uniforms.sun_ss_pos = hdr_shader->getUniformLocation("sun_pos");
 
+	sky_shader->uniforms.sun_dot = sky_shader->getUniformLocation("sun_dot");
+	forest_shader->uniforms.sun_dot = forest_shader->getUniformLocation("sun_dot");
+
 	if (use_tessellation)
 		terrain_shader = new ShaderProgram("tess_vs", "tess_tc", "tess_te", "terrain_fs");
 	else
 		terrain_shader = new ShaderProgram("terrain_vs", "terrain_fs");
+
+	terrain_shader->uniforms.sun_dot = terrain_shader->getUniformLocation("sun_dot");
 
 	tex_location = glGetUniformLocation(tex_shader->getIndex(), "tex");
 
@@ -285,6 +290,21 @@ void Renderer::init() {
 
 	terrain_tex_dirt = SOIL_load_OGL_texture("resource/dirt_test.png", SOIL_LOAD_AUTO, SOIL_CREATE_NEW_ID, SOIL_FLAG_INVERT_Y);
 	if (tree_test_tex == 0) printf("ERROR: %s\n", SOIL_last_result());
+
+	glActiveTexture(GL_TEXTURE0);
+
+	glBindTexture(GL_TEXTURE_2D, water_disp_tex);
+	glGenerateMipmap(GL_TEXTURE_2D);
+
+	glBindTexture(GL_TEXTURE_2D, tree_test_tex);
+	glGenerateMipmap(GL_TEXTURE_2D);
+
+	glBindTexture(GL_TEXTURE_2D, terrain_tex_grass);
+	glGenerateMipmap(GL_TEXTURE_2D);
+
+	glBindTexture(GL_TEXTURE_2D, terrain_tex_dirt);
+	glGenerateMipmap(GL_TEXTURE_2D);
+
 }
 
 void Renderer::render() {
@@ -336,6 +356,9 @@ void Renderer::render() {
 
 	// compute view direction vector
 	glm::vec3 view_dir = glm::normalize(glm::vec3(view_mat * glm::vec4(0.0f, 0.0f, -1.0f, 0.0f)));
+
+	// compute global sun incidence value
+	float sun_dot = glm::dot(sun_direction, glm::vec3(0.0f, 0.0f, 1.0f));
 
 
 	//------------- shadowmaps -------------
@@ -393,6 +416,7 @@ void Renderer::render() {
 
 	glUniformMatrix4fv(sky_shader->uniforms.view_mat, 1, GL_FALSE, glm::value_ptr(view_mat));
 	glUniform3fv(sky_shader->uniforms.sun_dir, 1, glm::value_ptr(sun_direction));
+	glUniform1f(sky_shader->uniforms.sun_dot, sun_dot);
 
 	glBindVertexArray(skybox_vao);
 	glDrawArrays(GL_TRIANGLES, 0, 36);
@@ -414,13 +438,14 @@ void Renderer::render() {
 	glUniformMatrix4fv(terrain_shader->uniforms.caster_model_mat, 1, GL_FALSE, glm::value_ptr(caster_model_mat));
 	glUniform3fv(terrain_shader->uniforms.sun_dir, 1, glm::value_ptr(sun_direction));
 	glUniform1f(terrain_shader->uniforms.time, static_cast<float>(glfwGetTime()));
+	glUniform1f(terrain_shader->uniforms.sun_dot, sun_dot);
 
 
 	// bind textures
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, terrain_tex_grass);
 
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, use_mipmaps ? GL_NEAREST_MIPMAP_LINEAR : GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
@@ -429,7 +454,7 @@ void Renderer::render() {
 	glActiveTexture(GL_TEXTURE1);
 	glBindTexture(GL_TEXTURE_2D, terrain_tex_dirt);
 
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, use_mipmaps ? GL_NEAREST_MIPMAP_LINEAR : GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
@@ -479,13 +504,16 @@ void Renderer::render() {
 	glUniformMatrix4fv(forest_shader->uniforms.caster_model_mat, 1, GL_FALSE, glm::value_ptr(caster_model_mat));
 	glUniform3fv(forest_shader->uniforms.sun_dir, 1, glm::value_ptr(sun_direction));
 	glUniform1f(forest_shader->uniforms.time, static_cast<float>(glfwGetTime()));
+	glUniform1f(forest_shader->uniforms.sun_dot, sun_dot);
 
 	glBindVertexArray(trees_far_vao);
 
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, tree_test_tex);
 
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, forest_sample_mode ? GL_NEAREST : GL_LINEAR);
+//	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, forest_sample_mode ? GL_NEAREST : GL_LINEAR);
+
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, use_mipmaps ? GL_NEAREST_MIPMAP_LINEAR : GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
 	glActiveTexture(GL_TEXTURE7);
@@ -519,6 +547,9 @@ void Renderer::render() {
 
 	glActiveTexture(GL_TEXTURE1);
 	glBindTexture(GL_TEXTURE_2D, water_disp_tex);
+
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, use_mipmaps ? GL_LINEAR_MIPMAP_LINEAR : GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
 	// bind shadowmap texture
 	glActiveTexture(GL_TEXTURE7);
@@ -843,7 +874,11 @@ void Renderer::updateControls() {
 	}
 	if (glfwGetKey(window, GLFW_KEY_U)) {
 		forest_sample_mode = true;
-	} else forest_sample_mode = false;
+	}	else forest_sample_mode = false;
+
+	if (glfwGetKey(window, GLFW_KEY_J)) {
+		use_mipmaps = false;
+	} else use_mipmaps = true;
 
 	if (glfwGetKey(window, GLFW_KEY_M))
 		wireframe = true;

@@ -3,19 +3,20 @@
 in vec3 position_world;
 
 uniform vec3 sun_direction;
+uniform float sun_dot;
 
 out vec4 frag_color;
 
-vec3 sun_color = vec3(2.0, 2.0, 1.8);
+const vec3 sun_color = vec3(2.0, 2.0, 1.8);
 
-vec3 horizonDayColor = vec3(0.6, 0.7, 0.8);
-vec3 zenithDayColor = vec3(0.3, 0.4, 1.0);
+const vec3 horizonDayColor = vec3(0.6, 0.7, 0.8);
+const vec3 zenithDayColor = vec3(0.3, 0.4, 1.0);
 
-vec3 sunsetColor = vec3(0.8, 0.3, 0.1);
-vec3 sunriseColor = vec3(0.7, 0.5, 0.1);
-
-vec3 horizonNightColor = vec3(0.1, 0.1, 0.1);
-vec3 zenithNightColor = vec3(0, 0, 0.1);
+const vec3 sunsetColor = vec3(0.8, 0.3, 0.2);
+const vec3 sunriseColor = vec3(0.7, 0.5, 0.1);
+ 
+const vec3 horizonNightColor = vec3(0.1, 0.1, 0.1);
+const vec3 zenithNightColor = vec3(0, 0, 0.1);
 
 
 void main() {
@@ -24,9 +25,8 @@ void main() {
 	vec3 sky_color;
 
 	//day/night cycle factor
-	float cycle = dot(sun_direction, vec3(0.0, 0.0, 1.0));
-	float cycle_factor = smoothstep(-0.3, 0.4, cycle);
-	float color_factor = smoothstep(0.0, 0.5, cycle);
+	float cycle_factor = smoothstep(-0.3, 0.4, sun_dot);
+	float color_factor = smoothstep(0.0, 0.5, sun_dot);
 
 	//distance of eye ray to sun dir
 	float dist_from_sun = distance(sun_direction, dir);
