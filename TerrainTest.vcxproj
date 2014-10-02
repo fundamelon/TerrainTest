@@ -90,6 +90,7 @@
     <ClCompile Include="Terrain.cpp" />
     <ClCompile Include="TerrainFoliage.cpp" />
     <ClCompile Include="TerrainMesh.cpp" />
+    <ClCompile Include="TerrainWrapper.cpp" />
     <ClCompile Include="thirdparty\noiseutils\noiseutils.cpp" />
     <ClCompile Include="util.cpp" />
   </ItemGroup>

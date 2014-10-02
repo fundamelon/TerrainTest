@@ -38,6 +38,8 @@ public:
 		float* data = NULL;
 	} vertex_buffer, scale_buffer, angle_buffer, type_buffer;
 
+	unsigned int trees_density = 300;
+
 
 private:
 	std::vector<Tree*> trees;

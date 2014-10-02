@@ -285,11 +285,17 @@ void Renderer::init() {
 	tree_test_tex = SOIL_load_OGL_texture("resource/tree_sheet.png", SOIL_LOAD_AUTO, SOIL_CREATE_NEW_ID, SOIL_FLAG_INVERT_Y);
 	if (tree_test_tex == 0) printf("ERROR: %s\n", SOIL_last_result());
 
-	terrain_tex_grass = SOIL_load_OGL_texture("resource/grass_test.png", SOIL_LOAD_AUTO, SOIL_CREATE_NEW_ID, SOIL_FLAG_INVERT_Y);
-	if (tree_test_tex == 0) printf("ERROR: %s\n", SOIL_last_result());
+	terrain_tex_grass = SOIL_load_OGL_texture("resource/img_test.png", SOIL_LOAD_AUTO, SOIL_CREATE_NEW_ID, SOIL_FLAG_INVERT_Y);
+	if (terrain_tex_grass == 0) printf("ERROR: %s\n", SOIL_last_result());
 
 	terrain_tex_dirt = SOIL_load_OGL_texture("resource/dirt_test.png", SOIL_LOAD_AUTO, SOIL_CREATE_NEW_ID, SOIL_FLAG_INVERT_Y);
-	if (tree_test_tex == 0) printf("ERROR: %s\n", SOIL_last_result());
+	if (terrain_tex_dirt == 0) printf("ERROR: %s\n", SOIL_last_result());
+
+	terrain_tex_norm = SOIL_load_OGL_texture("resource/terrain_norm_test.png", SOIL_LOAD_AUTO, SOIL_CREATE_NEW_ID, SOIL_FLAG_INVERT_Y);
+	if (terrain_tex_norm == 0) printf("ERROR: %s\n", SOIL_last_result());
+
+	terrain_tex_disp = SOIL_load_OGL_texture("resource/terrain_disp_test.png", SOIL_LOAD_AUTO, SOIL_CREATE_NEW_ID, SOIL_FLAG_INVERT_Y);
+	if (terrain_tex_disp == 0) printf("ERROR: %s\n", SOIL_last_result());
 
 	glActiveTexture(GL_TEXTURE0);
 
@@ -326,7 +332,7 @@ void Renderer::render() {
 	// create a view matrix for the shadow caster
 	glm::mat4 caster_view_mat = glm::lookAt(sun_direction, glm::vec3(0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
 
-	float shadow_map_scale = 20.0f;
+	float shadow_map_scale = 10.0f;
 
 	// create a projection matrix for the shadow caster
 	float near = -70.0f;
@@ -437,7 +443,7 @@ void Renderer::render() {
 	glUniformMatrix4fv(terrain_shader->uniforms.caster_proj_mat, 1, GL_FALSE, glm::value_ptr(caster_proj_mat));
 	glUniformMatrix4fv(terrain_shader->uniforms.caster_model_mat, 1, GL_FALSE, glm::value_ptr(caster_model_mat));
 	glUniform3fv(terrain_shader->uniforms.sun_dir, 1, glm::value_ptr(sun_direction));
-	glUniform1f(terrain_shader->uniforms.time, static_cast<float>(glfwGetTime()));
+	glUniform1f(terrain_shader->uniforms.time, (float)(glfwGetTime()));
 	glUniform1f(terrain_shader->uniforms.sun_dot, sun_dot);
 
 
@@ -459,6 +465,12 @@ void Renderer::render() {
 
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+
+	glActiveTexture(GL_TEXTURE5);
+	glBindTexture(GL_TEXTURE_2D, terrain_tex_norm);
+
+	glActiveTexture(GL_TEXTURE6);
+	glBindTexture(GL_TEXTURE_2D, terrain_tex_disp);
 
 	glActiveTexture(GL_TEXTURE7);
 	glBindTexture(GL_TEXTURE_2D, fb_tex_caster_depth);
@@ -524,7 +536,9 @@ void Renderer::render() {
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
 	glDisable(GL_CULL_FACE);
-	glDrawArrays(GL_POINTS, 0, trees_far_vao_length);
+	if (render_forest) {
+		glDrawArrays(GL_POINTS, 0, trees_far_vao_length);
+	}
 	glEnable(GL_CULL_FACE);
 
 	glDisable(GL_BLEND);
@@ -550,6 +564,9 @@ void Renderer::render() {
 
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, use_mipmaps ? GL_LINEAR_MIPMAP_LINEAR : GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 
 	// bind shadowmap texture
 	glActiveTexture(GL_TEXTURE7);
@@ -581,7 +598,7 @@ void Renderer::render() {
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, fb_tex_caster_depth);
 	glBindVertexArray(ss_corner_quad_vao);
-//	glDrawArrays(GL_TRIANGLES, 0, 6);
+	glDrawArrays(GL_TRIANGLES, 0, 6);
 	
 
 	// bind rendered fb

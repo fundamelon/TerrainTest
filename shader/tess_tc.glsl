@@ -15,10 +15,15 @@ out vec3 position_te_in[];
 out vec3 normal_te_in[];
 out vec2 texcoord_te_in[];
 
+float tess_min = 1.0;
+float tess_min_dist = 10;
+float tess_max = 7.0;
+float tess_dist_multiplier = 10;
+
 
 float get_tess_level() {
 
-	return clamp(20 - distance(vec3(0.0f), worldpos_tc_in[gl_InvocationID])/4, 1.0, 13.0);
+	return clamp(tess_min_dist - length(worldpos_tc_in[gl_InvocationID])/tess_dist_multiplier, tess_min, tess_max);
 }
 
  
@@ -31,7 +36,7 @@ void main () {
 
 	float tess_level = get_tess_level();
 
-	if(type == 1) {
+	if(type == 0) {
 		gl_TessLevelInner[0] = tess_level;
 		gl_TessLevelOuter[0] = tess_level;
 		gl_TessLevelOuter[1] = tess_level;

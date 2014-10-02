@@ -3,6 +3,7 @@
 layout (points) in;
 
 in VertexData {
+	vec3 pos;
     float scale;
 	float type;
 } VertexIn[];
@@ -18,7 +19,7 @@ uniform mat4 caster_proj_mat, caster_view_mat, caster_model_mat;
 uniform float time;
 
 int tree_dist_near = 0;
-int tree_dist_far = 500;
+int tree_dist_far = 400;
 
 out vec2 texcoord;
 out float brightness_factor;
@@ -53,7 +54,7 @@ const vec3 texcoord_set = vec3(0.0, 0.5, 1.0);
 
 void main() {
 
-	vec3 pos = vec3(model_mat * vec4(gl_in[0].gl_Position.xyz, 1.0));
+	vec3 pos = vec3(model_mat * vec4(VertexIn[0].pos, 1.0));
 
 	tree_dist = length(pos);
 
@@ -63,13 +64,13 @@ void main() {
 		// far action
 	} else {
 
-	// create a shadow map space texture coordinate
-	shadow_coord = caster_proj_mat * caster_view_mat * caster_model_mat * vec4 (gl_in[0].gl_Position.xyz, 1.0);
-	shadow_coord.xyz /= shadow_coord.w;
-	shadow_coord.xyz += 1.0;
-	shadow_coord.xyz *= 0.5;
+		// create a shadow map space texture coordinate
+		shadow_coord = caster_proj_mat * caster_view_mat * caster_model_mat * vec4 (VertexIn[0].pos, 1.0);
+		shadow_coord.xyz /= shadow_coord.w;
+		shadow_coord.xyz += 1.0;
+		shadow_coord.xyz *= 0.5;
 
-	brightness_factor = eval_shadow();
+		brightness_factor = eval_shadow();
 
 		vec4 texcoord_vals;
 
@@ -95,6 +96,41 @@ void main() {
 				texcoord_vals = texcoord_set.xzxz;
 				break;
 		}
+		
+		vec3 pos_world = pos;
+		//pos = VertexIn[0].pos;
+
+		vec3 forward = -normalize(pos_world);
+		vec3 global_up = vec3(0.0, 0.0, 1.0);
+		vec3 right = normalize(cross(forward, global_up));
+		vec3 up = -normalize(cross(forward, right));
+
+		pos.z += half_scale;
+		pos -= up * half_scale;
+		pos -= right * half_scale;
+		gl_Position =  proj_mat * view_mat * vec4(pos, 1.0);
+		texcoord = vec2(texcoord_vals.x, texcoord_vals.z);
+		EmitVertex();
+
+		pos += up * scale;
+		gl_Position = proj_mat * view_mat * vec4(pos, 1.0);
+		texcoord = vec2(texcoord_vals.x, texcoord_vals.w);
+		EmitVertex();
+
+		pos -= up * scale;
+		pos += right * scale;
+		gl_Position = proj_mat * view_mat * vec4(pos, 1.0);
+		texcoord = vec2(texcoord_vals.y, texcoord_vals.z);
+		EmitVertex();
+		
+		pos += up * scale;
+		gl_Position = proj_mat * view_mat * vec4(pos, 1.0);
+		texcoord = vec2(texcoord_vals.y, texcoord_vals.w);
+		EmitVertex();
+
+		EndPrimitive();
+
+		/*
 
 		pos.x -= half_scale;
 		gl_Position =  proj_mat * view_mat * vec4(pos, 1.0);
@@ -144,5 +180,7 @@ void main() {
 		EmitVertex();
 
 		EndPrimitive();
+
+		*/
 	}
 }

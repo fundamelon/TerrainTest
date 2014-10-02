@@ -11,6 +11,9 @@ namespace util {
 	const bool DEBUG_SHADER = false;
 
 	std::string getFileContents(const char*);
+
+	float lerp(float, float, float);
+	float blerp(float*, float, float);
 }
 
 #endif

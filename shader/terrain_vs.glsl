@@ -27,7 +27,9 @@ void main () {
 	normal = vertex_normal;
 	texcoord = vertex_texcoord;
 
-	position_eye = vec3 (view_mat * model_mat * vec4 (vertex_position, 1.0));
+	vec3 position_world = vec3(model_mat * vec4(vertex_position, 1.0));
+
+	position_eye = vec3 (view_mat * vec4(position_world, 1.0));
 	normal_eye = vec3 (view_mat * model_mat * vec4 (vertex_normal, 0.0));
 
 	gl_Position = proj_mat * vec4 (position_eye, 1.0);

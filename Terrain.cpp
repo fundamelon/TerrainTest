@@ -5,6 +5,7 @@
 
 
 std::vector<Chunk*> chunks;
+ChunkMap2D chunk_map;
 
 unsigned int flags = FLAG_UPDATED | FLAG_BUFREADY;
 int seed = 0;
@@ -62,7 +63,7 @@ void Terrain::init() {
 	baseMountainTerrain.SetFrequency(0.3f);
 	//	baseMountainTerrain.SetLacunarity(1.2f);
 	mountainTerrain.SetSourceModule(0, baseMountainTerrain);
-	mountainTerrain.SetScale(7.0f);
+	mountainTerrain.SetScale(12.0f);
 	mountainTerrain.SetBias(5.0f);
 
 	foothillTerrain.SetSourceModule(0, hillTerrain);
@@ -242,15 +243,22 @@ void Terrain::generateChunk(int x, int y, int id) {
 	//	float vertical_scale = 20.0f;
 	int lod_mul = (int)pow(2, c->lod);
 
+	c->sample_offset = (1.0f / GRID_SIZE) * GRID_SPACING;
+
+	/*
 
 	utils::NoiseMapBuilderPlane heightMapBuilder;
 	heightMapBuilder.SetSourceModule(samplerScale);
 	heightMapBuilder.SetDestNoiseMap(c->heightmap);
 	heightMapBuilder.SetDestSize(GRID_SIZE / lod_mul, GRID_SIZE / lod_mul);
-	heightMapBuilder.SetBounds(c->origin.x * horizontal_scale, (c->origin.x + getChunkSpacing()) * horizontal_scale, c->origin.y * horizontal_scale, (c->origin.y + getChunkSpacing()) * horizontal_scale);
+	heightMapBuilder.SetBounds(
+		c->origin.x * horizontal_scale, 
+		(c->origin.x + getChunkSpacing() + GRID_SPACING) * horizontal_scale, 
+		c->origin.y * horizontal_scale, 
+		(c->origin.y + getChunkSpacing() + GRID_SPACING) * horizontal_scale);
+
 	heightMapBuilder.Build();
 
-	/*
 	utils::RendererImage renderer;
 	utils::Image image;
 	renderer.SetSourceNoiseMap(c->heightmap);
@@ -263,44 +271,42 @@ void Terrain::generateChunk(int x, int y, int id) {
 	for (unsigned int row = 0; row < GRID_SIZE; row++) {
 		for (unsigned int col = 0; col < GRID_SIZE; col++) {
 
-			c->points[vert_i].owner = c;
+			Point* p = &c->points[vert_i];
 
-			c->points[vert_i].local_offset.x = (col * GRID_SPACING);
-			c->points[vert_i].local_offset.y = (row * GRID_SPACING);
+			p->owner = c;
 
-			c->points[vert_i].vert.x = c->points[vert_i].local_offset.x + c->origin.x; // x
-			c->points[vert_i].vert.y = c->points[vert_i].local_offset.y + c->origin.y; // y
-			
+			p->edge = (row == 0 || col == 0 || row == GRID_SIZE - 1 || col == GRID_SIZE - 1);
+			 
+			p->local_offset.x = col * (GRID_SPACING + c->sample_offset);
+			p->local_offset.y = row * (GRID_SPACING + c->sample_offset);
+			 
+			p->vert.x = c->points[vert_i].local_offset.x + c->origin.x; // x
+			p->vert.y = c->points[vert_i].local_offset.y + c->origin.y; // y
 
-			//only call displacement calculation if LOD will display it.
-			if (row % lod_mul != 0 || col % lod_mul != 0) {
-				c->points[vert_i].vert.z = 100;
-			}
-			else {
-				float x = (c->points[vert_i].vert.x - c->origin.x);
-				float y = (c->points[vert_i].vert.y - c->origin.y);
-				x /= getChunkSpacing();
-				y /= getChunkSpacing();
+			float disp = 100.0f;
 
-				x *= GRID_SIZE / lod_mul;
-				y *= GRID_SIZE / lod_mul;
+			//only call displacement calculation if LOD will display it.  Always sample edges.
+			if (!p->edge && (row % lod_mul != 0 || col % lod_mul != 0)) {
+			//	disp = 100;
+			} else {
+				disp = c->terrainGenerator->GetValue(p->vert.x * horizontal_scale, p->vert.y * horizontal_scale, 0) * vertical_scale;
 
-				float disp = c->heightmap.GetValue((int)(x), (int)(y));
-
-				c->points[vert_i].vert.z = disp * vertical_scale;
-
-				if (c->points[vert_i].vert.z <= c->water_height) c->water = true;
+				if (disp <= c->water_height) c->water = true;
 				else c->land = true;
 
 				for (int i = 0; i < MAX_POLY_PER_VERTEX; i++)
-					c->points[vert_i].users[i] = -1;
+					p->users[i] = -1;
 			}
+
+			// save value
+			p->vert.z = disp;
+			c->heightmap[col][row] = disp;
+
 			//increment to next vertex
 			vert_i++;
 		}
 	}
 
-	c->index = chunks.size();
 	/*
 	std::ostringstream s;
 	s << "chunk_" << c->index << ".bmp";
@@ -313,29 +319,30 @@ void Terrain::generateChunk(int x, int y, int id) {
 	writer.WriteDestFile();
 	*/
 	chunks.push_back(c);
+	chunk_map[std::make_pair(c->addr.x, c->addr.y)] = c;
 }
 
 
 void Terrain::updateChunks() {
 
+//	printf("[TER] Updating chunks...\n");
+
 	//mark out-of-range chunks for deletion
 	unsigned int deleting_count = 0;
+
 	for (unsigned int i = 0; i < chunks.size(); i++) {
-		Chunk* c = chunks.at(i);
+		Chunk* c = chunks.at(i); 
 
 		if (abs(c->addr.x - chunkPos.x) > chunk_dist || abs(c->addr.y - chunkPos.y) > chunk_dist) {
 			c->deleting = true;
 			deleting_count++;
-			//	flag_updated = true;
 			flags |= FLAG_UPDATED;
-		}
-		else {
+		} else {
 			//check all neighbor chunks and set water accordingly
 			for (int x = -1; x <= 1; x++)
 			for (int y = -1; y <= 1; y++)
 			if ((x != 0 || y != 0) && getChunkAt(c->addr.x + x, c->addr.y + y) != NULL && getChunkAt(c->addr.x + x, c->addr.y + y)->water) {
 				c->water_edge = true;
-				//	flag_updated = true;
 				flags |= FLAG_UPDATED;
 			}
 		}
@@ -346,25 +353,28 @@ void Terrain::updateChunks() {
 		for (int yi = -chunk_dist; yi <= chunk_dist; yi++) {
 			if (xi + chunkPos.x >= 0 && yi + chunkPos.y >= 0 && !containsChunkAt(xi + chunkPos.x, yi + chunkPos.y)) {
 				chunk_gen_queue.push_back(glm::ivec2(xi + chunkPos.x, yi + chunkPos.y));
-				//	flag_updated = true;
 				flags |= FLAG_UPDATED;
 			}
 		}
 	}
-	//	printf("[TER]\tChunks to generate: %i\n\tChunks to delete: %i\n", chunk_gen_queue.size(), deleting_count);
+//	printf("[TER]\tChunks to generate: %i\n\tChunks to delete: %i\n", chunk_gen_queue.size(), deleting_count);
+
+	unsigned int regenerating_count = 0;
 
 	for (unsigned int i = 0; i < chunks.size(); i++) {
 		Chunk* c = chunks.at(i);
-		if (c->lod != getLOD(c) && !c->deleting) {
-			//if LOD changed, and chunk isn't modified, regenerate this chunk
-			c->deleting = false;
-			c->regenerating = true;
-		}
+		if (!c->deleting) {
+			if(c->lod != getLOD(c)) {
+				//if LOD changed, and chunk isn't modified, regenerate this chunk
+				c->regenerating = true;
+				regenerating_count++;
+			}
 
-		c->lod = getLOD(c);
+			c->lod = getLOD(c);
+		}
 	}
 
-	if (chunk_gen_queue.size() == 0 && deleting_count == 0) return;
+	if (chunk_gen_queue.size() == 0 && deleting_count == 0 && regenerating_count == 0) return;
 
 
 	//delete flagged chunks, regenerate flagged chunks
@@ -374,12 +384,13 @@ void Terrain::updateChunks() {
 
 			//	printf("[TER] Deleting chunk at <%i, %i>\n", chunks.at(i)->addr.x, chunks.at(i)->addr.y);
 
+			chunk_map.erase(std::make_pair(chunks.at(i)->addr.x, chunks.at(i)->addr.y));
+
 			delete[] chunks.at(i)->points;
 			delete chunks.at(i);
 			chunks.erase(chunks.begin() + i);
 			i--;
-		}
-		else if (chunks.at(i)->regenerating) {
+		} else if (chunks.at(i)->regenerating) {
 			unsigned int temp_id = chunks.at(i)->id;
 			int temp_x = chunks.at(i)->addr.x;
 			int temp_y = chunks.at(i)->addr.y;
@@ -455,7 +466,7 @@ TerrainFoliage* Terrain::getTerrainFoliage() {
 }
 
 
-int Terrain::getChunkSpacing() {
+float Terrain::getChunkSpacing() {
 	
 	return GRID_SIZE * GRID_SPACING;
 }
@@ -487,21 +498,27 @@ bool Terrain::updateRequested() {
 
 
 bool containsChunkAt(int xi, int yi) {
+	
+//	return chunk_map.count(std::make_pair(xi, yi)) != 0;
 
 	for (unsigned int i = 0; i < chunks.size(); i++)
 		if (chunks.at(i)->addr.x == xi && chunks.at(i)->addr.y == yi)
 			return true;
-	return false;
+	return false; 
 }
 
 
 Chunk* getChunkAt(int xi, int yi) {
 
-	for (unsigned int i = 0; i < chunks.size(); i++)
+	return chunk_map[std::make_pair(xi, yi)];
+
+/*	for (unsigned int i = 0; i < chunks.size(); i++)
 		if (chunks.at(i)->addr.x == xi && chunks.at(i)->addr.y == yi)
 			return chunks.at(i);
 
 	return NULL;
+
+	*/
 }
 
 
@@ -521,13 +538,13 @@ unsigned int getChunkCount() {
 }
 
 
-int getChunkSpacing() { 
+float getChunkSpacing() { 
 	
 	return GRID_SIZE * GRID_SPACING; 
 }
 
 
-int Terrain::getGridSpacing() {
+float Terrain::getGridSpacing() {
 
 	return GRID_SPACING;
 }

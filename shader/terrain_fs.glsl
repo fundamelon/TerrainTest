@@ -8,9 +8,11 @@ in float tree_dist;
 
 //layout (binding = 1) uniform sampler2D disp_tex;
 
-layout (binding = 0) uniform sampler2D tex0;
-layout (binding = 1) uniform sampler2D tex1;
+layout (binding = 0) uniform sampler2D tex0; // grass
+layout (binding = 1) uniform sampler2D tex1; // dirt
 //...
+layout (binding = 5) uniform sampler2D tex5;
+layout (binding = 6) uniform sampler2D tex6;
 layout (binding = 7) uniform sampler2D tex7;
 
 uniform mat4 view_mat, model_mat;
@@ -72,8 +74,10 @@ vec4 terrain_color() {
 	} else {
 		Kd = texture(tex0, texcoord).rgb;
 	}
+
+	vec3 terrain_normal = normalize(texture(tex5, texcoord).rgb + normal);
 	
-	float slope = max(dot(normal, vec3(0, 0, 1)), 0.0);
+	float slope = max(dot(terrain_normal, vec3(0, 0, 1)), 0.0);
 
 	/*
 	float t1 = smoothstep(0.8, 0.9, slope);
@@ -96,7 +100,7 @@ vec4 terrain_color() {
 	// ambient intensity
 	vec3 Ia = La * Ka;
 	
-	float dot_prod = max(dot(sun_direction, normal), 0.0);
+	float dot_prod = max(dot(sun_direction, terrain_normal), 0.0);
 	
 	// diffuse intensity
 //	vec3 light_position_eye = vec3(view_mat * vec4(sun_direction, 1.0));
@@ -116,7 +120,14 @@ vec4 water_color() {
 	// ambient intensity
 	vec3 Ia = vec3(0.1, 0.3, 0.9) * 0.4;
 
-	vec3 water_normal = normalize(texture(tex1, texcoord).rgb);
+	vec2 texcoord_0 = texcoord;
+	vec2 texcoord_1 = texcoord;
+	texcoord_0.x += time * 0.01;
+
+	texcoord_1.y += time * 0.005;
+
+	vec3 water_normal = normalize(texture(tex1, texcoord_0).rgb * texture(tex1, texcoord_1).rgb);
+
 	vec3 water_normal_eye = vec3 (view_mat * model_mat * vec4 (water_normal, 0.0));
 
 	// diffuse intensity
@@ -127,7 +138,6 @@ vec4 water_color() {
 
 	int specular_exponent = 20;
   
-	//TODO: perturbations
 	vec3 surface_to_viewer_eye = normalize(-position_eye);
 	vec3 half_angle = normalize(direction_to_light_eye + surface_to_viewer_eye);
 	float dot_prod_specular = dot(water_normal_eye, half_angle);

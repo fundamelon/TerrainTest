@@ -2,10 +2,14 @@
 #define TERRAIN_WRAPPER_H
 
 #include <vector>
+#include <map>
+#include <glm/glm.hpp>
+#include <noise/noise.h>
+#include "thirdparty/noiseutils/noiseutils.h"
 
 //constant terrain parameters
-#define GRID_SIZE 64
-#define GRID_SPACING 2
+#define GRID_SIZE 16
+#define GRID_SPACING 2.0f
 
 
 enum StatusFlags {
@@ -26,23 +30,24 @@ extern int seed;
 
 extern glm::ivec2 chunkPos;
 
-static float horizontal_scale = 0.007f;
+static float horizontal_scale = 0.004f;
 static float vertical_scale = 6.0f;
 
 struct Point;
 struct Tree;
 class utils::NoiseMap;
 
-struct Chunk {
+class Chunk {
+
+public:
+
+	float getHeight(float, float);
 
 	//unique id
 	unsigned int id;
 
 	//level of detail
 	unsigned int lod;
-
-	//unique index
-	unsigned int index;
 
 	//flag indicating if chunk is to be deleted
 	bool deleting = false;
@@ -70,16 +75,21 @@ struct Chunk {
 	noise::module::ScaleBias* terrainGenerator;
 
 	//heightmap data
-	utils::NoiseMap heightmap;
+	float heightmap[GRID_SIZE][GRID_SIZE];
+
+	float sample_offset;
 };
 
 extern std::vector<Chunk*> chunks;
+
+typedef std::map<std::pair<int, int>, Chunk*> ChunkMap2D;
+extern ChunkMap2D chunk_map;
 
 Chunk* getChunkAt(int, int);
 Chunk* getChunkByID(unsigned int);
 bool containsChunkAt(int, int);
 unsigned int getChunkCount();
-int getChunkSpacing();
+float getChunkSpacing();
 
 //LOD controller
 extern int lod_count;

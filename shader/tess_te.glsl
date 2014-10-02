@@ -1,6 +1,6 @@
 #version 400
  
-layout (triangles, fractional_odd_spacing, ccw) in;
+layout (triangles, equal_spacing, ccw) in;
 
 layout (binding = 1) uniform sampler2D disp_tex;
 

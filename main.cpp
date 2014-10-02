@@ -28,7 +28,7 @@ int main() {
 	mainTerrain->init();
 
 	//TERRAIN SEED
-	mainTerrain->setSeed(223);
+	mainTerrain->setSeed(265);
 
 	mainRenderer->setTerrain(mainTerrain);
 	mainRenderer->initTerrain();

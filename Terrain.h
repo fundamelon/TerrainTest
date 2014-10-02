@@ -9,7 +9,7 @@
 class TerrainMesh;
 class TerrainFoliage;
 
-struct Chunk;
+class Chunk;
 
 struct Buffer {
 
@@ -42,28 +42,28 @@ public:
 	TerrainMesh* getTerrainMesh();
 	TerrainFoliage* getTerrainFoliage();
 
-	int getChunkSpacing();
-	int getGridSpacing();
+	float getChunkSpacing();
+	float getGridSpacing();
 
 	glm::ivec2 getChunkPos();
 	unsigned int getLOD(Chunk*);
 
 	//CONTROL FUNCTIONS
 
-	// Are data buffers ready?
+	// data buffers ready?
 	bool buffersReady();
 
-	// Set buffers flag to false
+	// set buffers flag to false
 	void buffersCreated();
 
-	// Force an update during the next execution.
+	// force an update during next iteration
 	void forceUpdate();
 
-	// Chunk updates
+	// chunk update functions
 	void updateChunks();
 	void generateChunk(int, int, int);
 
-	// Needs updating.
+	// update requested?
 	bool updateRequested();
 
 	Buffer terrain_buf;
@@ -73,7 +73,7 @@ public:
 	Buffer water_far_buf;
 	Buffer trees_far_buf;
 
-	int chunk_dist = 12;
+	int chunk_dist = 18;
 
 	float terrain_disp = -1.0f;
 
@@ -83,7 +83,7 @@ public:
 	//1: near
 	//2: med
 	//3: far
-	unsigned int dist_div = 1;
+	unsigned int dist_div = 3;
 
 
 	std::vector<glm::ivec2> chunk_gen_queue;

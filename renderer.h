@@ -79,7 +79,7 @@ public:
 	bool render_lock = false;
 	bool use_caster_view = false;
 	
-	bool use_tessellation = false;
+	bool use_tessellation = true;
 
 	bool use_mipmaps = true;
 
@@ -100,8 +100,10 @@ private:
 	glm::vec3 sun_direction = glm::normalize(glm::vec3(0.5f, 0.0f, 1.0f));
 	float sun_inclination = 0.5f;
 
+	bool render_forest = false;
+
 	float near_clip_dist = 0.02f;
-	float far_clip_dist = 2000.0f;
+	float far_clip_dist = 800.0f;
 
 	float hdr_low_threshold = 1.0f;
 	float hdr_high_threshold = 1.2f;
@@ -131,6 +133,8 @@ private:
 	GLuint tree_test_tex;
 	GLuint terrain_tex_grass;
 	GLuint terrain_tex_dirt;
+	GLuint terrain_tex_norm;
+	GLuint terrain_tex_disp;
 
 	//shader programs
 	ShaderProgram* default_shader;

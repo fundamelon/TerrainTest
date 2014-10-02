@@ -4,13 +4,13 @@ in vec2 texcoord;
 in float tree_dist;
 in float brightness_factor;
 
-layout (binding = 0) uniform sampler2D tex0;
+layout (binding = 0) uniform lowp sampler2D tex0;
 
 uniform vec3 sun_direction;
-uniform float sun_dot;
+uniform lowp float sun_dot;
 
 int tree_dist_near = 0;
-int tree_dist_far = 500;
+int tree_dist_far = 400;
 
 out vec4 frag_color;
 
@@ -42,7 +42,7 @@ void main() {
 
 	if(tree_dist > tree_dist_far - 100) {
 		frag_color.a = mix(frag_color.a, 0, (tree_dist - (tree_dist_far - 100)) / 100);
-	} else if(tree_dist < tree_dist_near) {
-		frag_color.a = mix(0, frag_color.a, (tree_dist - 40) / 20);
+	} else if(tree_dist < tree_dist_near - 10) {
+		frag_color.a = mix(0, frag_color.a, (tree_dist - tree_dist_near) / 10);
 	}
 }

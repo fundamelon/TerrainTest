@@ -31,6 +31,9 @@ struct Point {
 	//texcoord
 	glm::vec2 texcoord;
 
+	// indicates if point is on a chunk boundary
+	bool edge;
+
 	//indices of tris that use this point
 	int users[MAX_POLY_PER_VERTEX];
 };
