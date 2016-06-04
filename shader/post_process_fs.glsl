@@ -155,5 +155,22 @@ void main () {
 		frag_color = texture(tex, texcoord) + godray(hdr_high, texcoord) * 3 * smoothstep(1, 0, distance(vec2(0.5), sun_pos));
 	}
 
-	clamp(frag_color, 0.0, 1.0);
+	frag_color = clamp(frag_color, 0.0, 1.0);
+
+//	float cycle_factor = smoothstep(-0.3, 0.2, sun_dot);
+
+	vec4 fog_color = vec4(vec3(0.1, 0.1, 0.1), 1.0);
+
+	const float min_fog_radius = 100.0;
+	const float max_fog_radius = 800.0;
+
+	// work out distance from camera to point
+//	float dist = texture(depth, texcoord).r > 0.999 ? 1000 : 0;
+	float dist = (texture(depth, texcoord).r - 0.9999) * 10000;
+	// get a fog factor (thickness of fog) based on the distance
+	float fog_fac = (dist - min_fog_radius) / (max_fog_radius - min_fog_radius);
+	// constrain the fog factor between 0 and 1
+	fog_fac = clamp (fog_fac, 0.0, 1.0);
+
+	frag_color = mix(frag_color, fog_color, fog_fac);
 }

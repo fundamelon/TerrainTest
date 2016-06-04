@@ -11,8 +11,7 @@ void updateTerrainBuffers(Terrain* t) {
 
 	t->regen();
 
-	double end_seconds = glfwGetTime();
-	printf("Terrain generated in %f sec\n", end_seconds - start_seconds);
+	printf("Terrain generated in %f sec\n", glfwGetTime() - start_seconds);
 }
 
 
@@ -39,7 +38,7 @@ int main() {
 	// initialize terrain
 	printf("Initializing terrain...\n");
 
-	mainTerrain->forceUpdate();// flag_force_update = true;
+	mainTerrain->flagForceUpdate();
 	mainTerrain->update(glm::vec2(mainRenderer->getCamPos()));
 
 	boost::thread* t;
@@ -57,7 +56,7 @@ int main() {
 		// if able, regenerate and assign terrain VAOs
 		if (mainTerrain->buffersReady()) {
 			mainRenderer->buildTerrainBuffers();
-			mainTerrain->buffersCreated();
+			mainTerrain->flagBuffersCreated();
 		}
 
 		mainRenderer->render();

@@ -28,7 +28,7 @@ std::string util::getFileContents(const char *filepath)
 }
 
 // simple linear interpolation
-float util::lerp(float v0, float v1, float t) {
+const float& util::lerp(const float& v0, const float& v1, const float& t) {
 	if (t == 1) return v1;
 	else return v0 + t*(v1 - v0);
 }
@@ -39,7 +39,7 @@ float util::lerp(float v0, float v1, float t) {
 //	data[2] : bottom left
 //	data[3] : bottom right
 //	fx, fy  : fractional position
-float util::blerp(float data[4], float fx, float fy) {
+const float& util::blerp(const float data[4], const float& fx, const float& fy) {
 
 	float xt = lerp(data[0], data[1], fx);
 	float xb = lerp(data[2], data[3], fx);

@@ -243,7 +243,7 @@ void Terrain::generateChunk(int x, int y, int id) {
 	//	float vertical_scale = 20.0f;
 	int lod_mul = (int)pow(2, c->lod);
 
-	c->sample_offset = (1.0f / GRID_SIZE) * GRID_SPACING;
+	c->sample_offset = 0;// (1.0f / GRID_SIZE) * GRID_SPACING;
 
 	/*
 
@@ -479,13 +479,13 @@ bool Terrain::buffersReady() {
 }
 
 
-void Terrain::buffersCreated() {
+void Terrain::flagBuffersCreated() {
 
 	flags &= ~FLAG_BUFREADY;
 }
 
 
-void Terrain::forceUpdate() {
+void Terrain::flagForceUpdate() {
 
 	flags |= FLAG_FORCE_UPDATE;
 }

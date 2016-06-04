@@ -54,10 +54,10 @@ public:
 	bool buffersReady();
 
 	// set buffers flag to false
-	void buffersCreated();
+	void flagBuffersCreated();
 
 	// force an update during next iteration
-	void forceUpdate();
+	void flagForceUpdate();
 
 	// chunk update functions
 	void updateChunks();

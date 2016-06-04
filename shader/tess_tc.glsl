@@ -18,7 +18,7 @@ out vec2 texcoord_te_in[];
 float tess_min = 1.0;
 float tess_min_dist = 10;
 float tess_max = 7.0;
-float tess_dist_multiplier = 10;
+float tess_dist_multiplier = 2;
 
 
 float get_tess_level() {

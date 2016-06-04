@@ -120,13 +120,13 @@ vec4 water_color() {
 	// ambient intensity
 	vec3 Ia = vec3(0.1, 0.3, 0.9) * 0.4;
 
-	vec2 texcoord_0 = texcoord;
-	vec2 texcoord_1 = texcoord;
+	vec2 texcoord_0 = texcoord * 5;
+	vec2 texcoord_1 = texcoord * 5;
 	texcoord_0.x += time * 0.01;
 
-	texcoord_1.y += time * 0.005;
+	texcoord_1.y += time * 0.02;
 
-	vec3 water_normal = normalize(texture(tex1, texcoord_0).rgb * texture(tex1, texcoord_1).rgb);
+	vec3 water_normal = (texture(tex1, texcoord_0).rgb * texture(tex1, texcoord_1).rgb);
 
 	vec3 water_normal_eye = vec3 (view_mat * model_mat * vec4 (water_normal, 0.0));
 
@@ -136,7 +136,7 @@ vec4 water_color() {
 	dot_prod = max(dot_prod, 0.0);
 	vec3 Id = Ld * Kd * dot_prod; //final intensity
 
-	int specular_exponent = 20;
+	int specular_exponent = 5;
   
 	vec3 surface_to_viewer_eye = normalize(-position_eye);
 	vec3 half_angle = normalize(direction_to_light_eye + surface_to_viewer_eye);

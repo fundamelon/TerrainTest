@@ -21,6 +21,7 @@ uniform float time;
 int tree_dist_near = 0;
 int tree_dist_far = 400;
 
+out vec3 forward;
 out vec2 texcoord;
 out float brightness_factor;
 out float tree_dist;
@@ -100,7 +101,7 @@ void main() {
 		vec3 pos_world = pos;
 		//pos = VertexIn[0].pos;
 
-		vec3 forward = -normalize(pos_world);
+		forward = -normalize(pos_world);
 		vec3 global_up = vec3(0.0, 0.0, 1.0);
 		vec3 right = normalize(cross(forward, global_up));
 		vec3 up = -normalize(cross(forward, right));

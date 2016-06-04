@@ -1,14 +1,13 @@
 #version 400
  
-layout (triangles, equal_spacing, ccw) in;
+layout (triangles, fractional_odd_spacing, ccw) in;
 
 layout (binding = 1) uniform sampler2D disp_tex;
+layout (binding = 6) uniform sampler2D disp_tex_2;
 
 in vec3 position_te_in[];
 in vec3 normal_te_in[];
 in vec2 texcoord_te_in[];
-
-// could use a displacement map here
  
 uniform mat4 proj_mat, view_mat, model_mat;
 uniform mat4 caster_proj, caster_view, caster_model;
@@ -58,6 +57,8 @@ void main () {
 	shadow_coord.xyz /= shadow_coord.w;
 	shadow_coord.xyz += 1.0;
 	shadow_coord.xyz *= 0.5;
+
+	position.z += texture(disp_tex_2, texcoord * 0.01).r;
 
 	if(type == 2) {
 		position_eye = vec3 (view_mat_mul * view_mat * model_mat * vec4 (position, 1.0));

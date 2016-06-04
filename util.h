@@ -12,8 +12,9 @@ namespace util {
 
 	std::string getFileContents(const char*);
 
-	float lerp(float, float, float);
-	float blerp(float*, float, float);
+	const float& lerp(const float&, const float&, const float&);
+	const float& blerp(const float*, const float&, const float&);
+
 }
 
 #endif

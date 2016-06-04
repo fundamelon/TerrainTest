@@ -1,13 +1,16 @@
 #version 420
 
+in vec3 forward;
 in vec2 texcoord;
 in float tree_dist;
 in float brightness_factor;
 
 layout (binding = 0) uniform lowp sampler2D tex0;
+layout (binding = 1) uniform sampler2D tex1;
 
 uniform vec3 sun_direction;
 uniform lowp float sun_dot;
+uniform mat4 view_mat, model_mat;
 
 int tree_dist_near = 0;
 int tree_dist_far = 400;
@@ -21,9 +24,16 @@ void main() {
 
 	if(frag_color.a <= 0.5) discard;
 
-	float global_brightness = sun_dot * 0.7 + 0.3;
+	float global_brightness = 1.0;//sun_dot * 0.4 + 0.6;
 
-	frag_color.rgb *= (global_brightness * brightness_factor * 0.8) + 0.1;
+	vec3 normal = normalize(texture(tex1, texcoord).rgb);// + forward * 0.2;
+
+	vec3 normal_eye = vec3 (view_mat * model_mat * vec4 (normal, 0.0));
+	
+	vec3 direction_to_light_eye = vec3(view_mat * vec4(sun_direction, 1.0));
+	float dot_prod = dot(direction_to_light_eye, normal_eye);
+
+	frag_color.rgb *= (global_brightness * brightness_factor * dot_prod) + 0.1;
 	
 	float cycle_factor = smoothstep(-0.3, 0.2, sun_dot);
 

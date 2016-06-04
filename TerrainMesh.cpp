@@ -49,12 +49,17 @@ void TerrainMesh::triangulate() {
 			}
 		}
 
-		for (int row = 0; row <= GRID_SIZE - lod_mul; row += lod_mul) {
-			for (int col = 0; col <= GRID_SIZE - lod_mul; col += lod_mul) {
+		int lod_skip = c->lod == 0 ? lod_mul : 0;
+		lod_skip = 0;
+
+		for (int row = 0; row <= GRID_SIZE - lod_skip - lod_mul; row += lod_mul) {
+			for (int col = 0; col <= GRID_SIZE - lod_skip - lod_mul; col += lod_mul) {
 				int prev_size = tris.size();
 
-				bool top = row == GRID_SIZE - lod_mul;
-				bool right = col == GRID_SIZE - lod_mul;
+				bool top = row == GRID_SIZE - lod_skip - lod_mul;
+				bool right = col == GRID_SIZE - lod_skip - lod_mul;
+
+			//	if (top || right) continue;
 			//	bool top = false;
 			//	bool right = false;
 
@@ -427,8 +432,8 @@ void TerrainMesh::genTerrainBuffers() {
 			terrain_vertex_buffer[offset + i * 3 + 1] = t.points[i]->local_offset.y + t.points[i]->owner->origin.y; // y
 			terrain_vertex_buffer[offset + i * 3 + 2] = t.points[i]->vert.z; // z
 
-			terrain_texcoord_buffer[texcoord_index++] = (float)(t.points[i]->local_offset.x) / getChunkSpacing();
-			terrain_texcoord_buffer[texcoord_index++] = (float)(t.points[i]->local_offset.y) / getChunkSpacing();
+			terrain_texcoord_buffer[texcoord_index++] = (float)(t.points[i]->vert.x) / getChunkSpacing();
+			terrain_texcoord_buffer[texcoord_index++] = (float)(t.points[i]->vert.y) / getChunkSpacing();
 
 		//	printf("%i:\n", offset + i);
 		//	printf("%f, %f, %f\n", terrain_vertex_buffer[offset + i * 3 + 0], terrain_vertex_buffer[offset + i * 3 + 1], terrain_vertex_buffer[offset + i * 3 + 2]);
